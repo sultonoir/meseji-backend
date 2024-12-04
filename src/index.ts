@@ -5,11 +5,12 @@ import { cors } from "hono/cors";
 import { dino } from "./routes/dino/dino.route";
 import { Env } from "./types";
 import { html } from "hono/html";
-
 import ioMiddleware, { initWebsocket } from "./socket";
+import { auth } from "./routes/auth/auth.route";
+import { db } from "./db";
 
 const app = new Hono<Env>();
-
+await db.$connect();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 export const server = serve(
   {
@@ -29,7 +30,7 @@ app
     return c.html(
       html`<html>
         <head>
-          <title>Socket.IO chat</title>
+          <title>Messeji</title>
           <style>
             body {
               margin: 0;
@@ -114,4 +115,5 @@ app
       </html>`
     );
   })
-  .route("/", dino);
+  .route("/", dino)
+  .route("/", auth);

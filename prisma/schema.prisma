@@ -7,6 +7,116 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id             String        @id @default(cuid())
+  name           String
+  email          String        @unique
+  username       String        @unique @default(cuid())
+  image          String        @default("")
+  hashedPassword String?
+  bio            String        @default("") @db.Text
+  baner          String        @default("")
+  status         String        @default("")
+  lastSeen       DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  groupMember    GroupMember[]
+  group          Group[]
+  senderMessages Message[]
+  messageReads   MessageRead[]
+  junk           Junk[]
+
+  @@index([username], type: Hash)
+  @@index([email], type: Hash)
+}
+
+model Group {
+  id           String        @id @default(cuid())
+  name         String        @default("")
+  image        String        @default("")
+  desc         String        @default("") @db.Text
+  invitedCode  String        @default(cuid())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupMembers GroupMember[]
+  messages     Message[]
+  messageReads MessageRead[]
+  junk         Junk[]
+
+  @@index([userId], type: Hash)
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  name      String
+  role      String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId], type: Hash)
+  @@index([userId], type: Hash)
+}
+
+model Message {
+  id           String        @id @default(cuid())
+  content      String
+  senderId     String
+  groupId      String
+  replyToId    String?
+  sender       User          @relation(fields: [senderId], references: [id])
+  group        Group         @relation(fields: [groupId], references: [id])
+  replyTo      Message?      @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies      Message[]     @relation("MessageReplies")
+  messageReads MessageRead[]
+  media        Media[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Junk {
+  id      String @id @default(cuid())
+  userId  String
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id])
+  user    User   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MessageRead {
+  id        String   @id @default(cuid())
+  groupId   String
+  messageId String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, messageId, groupId])
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  value     String
+  caption   String   @default("") @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId], type: Hash)
+}
+
 model Dinosaur {
   id          String @id @default(cuid())
   name        String

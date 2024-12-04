@@ -3,7 +3,10 @@
   "type": "module",
   "scripts": {
     "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "push": "npx prisma db push",
+    "generate": "npx prisma generate --no-engine",
+    "studio": "npx prisma studio"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
@@ -12,6 +15,8 @@
     "@prisma/extension-accelerate": "^1.2.1",
     "@prisma/extension-pulse": "^1.2.0",
     "hono": "^4.6.12",
+    "nanoid": "^5.0.9",
+    "oslo": "^1.2.1",
     "prisma": "^6.0.1",
     "socket.io": "^4.8.1",
     "zod": "^3.23.8"
