@@ -10,7 +10,7 @@ export const authMiddleware = createMiddleware<Env>(async (c, next) => {
   if (!token) {
     return c.json(
       {
-        message: "Unauthorized cookie",
+        message: "Unauthorized",
       },
       401
     );
@@ -21,7 +21,7 @@ export const authMiddleware = createMiddleware<Env>(async (c, next) => {
   if (!session) {
     return c.json(
       {
-        message: "Unauthorized jwt",
+        message: "Unauthorized",
       },
       401
     );

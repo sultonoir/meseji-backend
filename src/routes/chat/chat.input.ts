@@ -12,14 +12,12 @@ export const GroupSchema = z.object({
 
 export const CreateChatGroup = zValidator("json", GroupSchema, (result, c) => {
   if (!result.success) {
-    const err = result.error.flatten();
-    return c.json({
-      success: false,
-      message: {
-        name: err.fieldErrors.name?.[0],
-        image: err.fieldErrors.image?.[0],
+    return c.json(
+      {
+        message: "Validation error",
       },
-    });
+      422
+    );
   }
 });
 
@@ -59,13 +57,11 @@ const dmSchema = z.object({
 
 export const CreateDm = zValidator("json", dmSchema, (result, c) => {
   if (!result.success) {
-    const err = result.error.flatten();
     return c.json(
       {
-        success: false,
-        message: "invalide data",
+        message: "Validation error",
       },
-      400
+      422
     );
   }
 });
@@ -76,15 +72,11 @@ const querySchema = z.object({
 
 export const QuerySchema = zValidator("query", querySchema, (result, c) => {
   if (!result.success) {
-    const err = result.error.flatten();
     return c.json(
       {
-        success: false,
-        message: "invalide data",
+        message: "Validation error",
       },
-      400
+      422
     );
   }
 });
-
-

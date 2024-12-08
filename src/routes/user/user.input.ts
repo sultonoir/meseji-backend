@@ -14,10 +14,9 @@ export const UpdateUserValidation = zValidator(
     if (!result.success) {
       return c.json(
         {
-          success: false,
-          message: "invalide data",
+          message: "Validation error",
         },
-        400
+        422
       );
     }
   }
