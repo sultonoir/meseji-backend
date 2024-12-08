@@ -344,7 +344,6 @@ export async function getChatByid({
 
   const otherMember = chat?.members.find((item) => item.userId !== userId);
 
-  console.log({ otherMember });
   return {
     ...chat,
     id: chat?.id,
