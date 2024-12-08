@@ -2,12 +2,12 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
-import { dino } from "./routes/dino/dino.route";
 import { Env } from "./types";
 import { html } from "hono/html";
 import ioMiddleware, { initWebsocket } from "./socket";
 import { auth } from "./routes/auth/auth.route";
 import { db } from "./db";
+import { group } from "./routes/chat/chat.route";
 
 const app = new Hono<Env>();
 await db.$connect();
@@ -115,5 +115,5 @@ app
       </html>`
     );
   })
-  .route("/", dino)
-  .route("/", auth);
+  .route("/", auth)
+  .route("/", group);

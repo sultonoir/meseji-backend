@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { zValidator } from "@hono/zod-validator";
+
 const SigninSchema = z.object({
   email: z.string().email({ message: "Please enter valid email address" }),
   password: z.string().min(1, {

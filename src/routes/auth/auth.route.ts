@@ -85,6 +85,14 @@ auth
         name,
         hashedPassword,
         username,
+        member: {
+          create: {
+            chatId: process.env.GROUP_ID ?? "",
+            id: generateId(),
+            name,
+            role: "member",
+          },
+        },
       },
     });
 
@@ -110,6 +118,6 @@ auth
   })
   .get("/session", authMiddleware, async (c) => {
     const user = c.get("user");
-    
+
     return c.json(user);
   });
