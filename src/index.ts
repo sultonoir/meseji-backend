@@ -8,6 +8,7 @@ import ioMiddleware, { initWebsocket } from "./socket";
 import { auth } from "./routes/auth/auth.route";
 import { db } from "./db";
 import { group } from "./routes/chat/chat.route";
+import { user } from "./routes/user/user.route";
 
 const app = new Hono<Env>();
 await db.$connect();
@@ -116,4 +117,5 @@ app
     );
   })
   .route("/", auth)
-  .route("/", group);
+  .route("/", group)
+  .route("/", user);
