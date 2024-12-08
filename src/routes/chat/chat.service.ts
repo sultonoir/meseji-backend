@@ -89,7 +89,7 @@ export async function sendMessage({
       },
     });
 
-    if (media.length > 1) {
+    if (media.length > 0) {
       const newMedia = await tx.media.createManyAndReturn({
         data: media.map((item) => ({
           id: generateId(),
@@ -305,7 +305,13 @@ export async function createChatPersonal({
   return personal;
 }
 
-export async function getChatByid({ id }: { id: string }) {
+export async function getChatByid({
+  id,
+  userId,
+}: {
+  id: string;
+  userId: string;
+}) {
   const chat = await db.chat.findUnique({
     where: {
       id,
@@ -328,6 +334,7 @@ export async function getChatByid({ id }: { id: string }) {
               status: true,
               lastSeen: true,
               baner: true,
+              name: true,
             },
           },
         },
@@ -335,10 +342,16 @@ export async function getChatByid({ id }: { id: string }) {
     },
   });
 
-  const otherMember = chat?.members.find((item) => item.userId !== id);
+  const otherMember = chat?.members.find((item) => item.userId !== userId);
 
+  console.log({ otherMember });
   return {
     ...chat,
+    id: chat?.id,
+    name: chat?.isGroup
+      ? chat.name || "Unknown Group"
+      : otherMember?.user.name || "Unknown User",
+    image: chat?.isGroup ? chat.image || "" : otherMember?.user.image || "",
     lastOnline: otherMember?.user.lastSeen,
   };
 }

@@ -44,6 +44,7 @@ export function initWebsocket(server: any) {
 
     socket.on("sendMessage", async (message: SendMessage) => {
       const result = await sendMessage(message);
+      console.log({ message, result });
       io.to(message.chatId).emit("sendMessage", result);
     });
 

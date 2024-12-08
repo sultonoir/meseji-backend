@@ -22,8 +22,8 @@ group
   })
   .get("/:id", async (c) => {
     const id = c.req.param("id");
-
-    const chat = await getChatByid({ id });
+    const user = c.get("user");
+    const chat = await getChatByid({ id, userId: user.id });
     if (!chat) {
       return c.json(
         {
