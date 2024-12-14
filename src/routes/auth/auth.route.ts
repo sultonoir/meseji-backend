@@ -5,8 +5,8 @@ import { signupInput, singinInput } from "./auth.input";
 import { Argon2id } from "oslo/password";
 import { db } from "@/db";
 import { setSignedCookie } from "hono/cookie";
-import { generateId } from "@/lib/generateId";
 import { authMiddleware } from "@/middleware/auth.middleware";
+import { users } from "@/db/schema";
 
 const argon2id = new Argon2id();
 const ONE_WEEK_IN_SECONDS = 7 * 86400; // 7 hari dalam detik
@@ -16,8 +16,8 @@ auth
   .post("/login", singinInput, async (c) => {
     const { email, password } = c.req.valid("json");
 
-    const existingUser = await db.user.findFirst({
-      where: { email },
+    const existingUser = await db.query.users.findFirst({
+      where: (u, { eq }) => eq(u.email, email),
     });
 
     if (!existingUser?.hashedPassword) {
@@ -65,8 +65,9 @@ auth
   .post("/signup", signupInput, async (c) => {
     const { email, password, name, username } = c.req.valid("json");
 
-    const existingUser = await db.user.findFirst({
-      where: { OR: [{ email }] },
+    const existingUser = await db.query.users.findFirst({
+      where: (u, { or, eq }) =>
+        or(eq(u.email, email), eq(u.username, username)),
     });
 
     if (existingUser) {
@@ -78,29 +79,16 @@ auth
 
     const hashedPassword = await argon2id.hash(password);
 
-    const user = await db.user.create({
-      data: {
-        id: generateId(10),
-        email,
-        name,
-        hashedPassword,
-        username,
-        member: {
-          create: {
-            chatId: process.env.GROUP_ID ?? "",
-            id: generateId(),
-            name,
-            role: "member",
-          },
-        },
-      },
-    });
+    const user = await db
+      .insert(users)
+      .values({ name, email, username, hashedPassword })
+      .returning();
 
     const payload = {
-      id: user.id,
-      name: user.name,
-      image: user.image,
-      username: user.username,
+      id: user.at(0)?.id,
+      name: user.at(0)?.name,
+      image: user.at(0)?.image,
+      username: user.at(0)?.username,
     };
 
     const secret = process.env.JWT_SECRET as string;
