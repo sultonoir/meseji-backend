@@ -6,12 +6,10 @@ import { Env } from "./types";
 import { html } from "hono/html";
 import ioMiddleware, { initWebsocket } from "./socket";
 import { auth } from "./routes/auth/auth.route";
-import { db } from "./db";
 import { group } from "./routes/chat/chat.route";
 import { user } from "./routes/user/user.route";
 
 const app = new Hono<Env>();
-await db.$connect();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 export const server = serve(
   {
