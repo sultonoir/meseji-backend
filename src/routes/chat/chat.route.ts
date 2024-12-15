@@ -46,7 +46,7 @@ group
     const { name, image } = c.req.valid("json");
     const group = await createChatGroup({
       userId: user.id,
-      username: user.username,
+      username: user.name,
       name,
       image,
     });
