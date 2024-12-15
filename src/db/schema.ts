@@ -1,184 +1,189 @@
 import {
-  text,
+  pgTable,
   varchar,
+  text,
   boolean,
   timestamp,
-  integer,
   uniqueIndex,
   index,
-  pgTable,
+  integer,
 } from "drizzle-orm/pg-core";
-
 import { relations } from "drizzle-orm";
 import { generateId } from "@/lib/generateId";
 
-export const users = pgTable(
-  "users",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(generateId(10)),
-    name: varchar("name", { length: 255 }).notNull(),
-    email: varchar("email", { length: 255 }).notNull().unique(),
-    username: varchar("username", { length: 36 })
-      .notNull()
-      .default(generateId(10)),
-    image: varchar("image", { length: 255 }).notNull().default(""),
-    hashedPassword: varchar("hashed_password", { length: 255 }),
-    bio: text("bio").notNull().default(""),
-    baner: varchar("baner", { length: 255 }).notNull().default(""),
-    status: varchar("status", { length: 255 }),
-    lastSeen: timestamp("last_seen").notNull().defaultNow(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (users) => ({
-    emailIndex: uniqueIndex("users_email_idx").on(users.email),
-    usernameIndex: uniqueIndex("users_username_idx").on(users.username),
-    lastSeenIndex: index("users_last_seen_idx").on(users.lastSeen),
-  })
-);
+export const user = pgTable("user", {
+  id: varchar("id", { length: 36 })
+    .primaryKey()
+    .$defaultFn(() => generateId(10)),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }).notNull(),
+  username: varchar("username", { length: 255 }).notNull(),
+  image: varchar("image", { length: 255 }).notNull().default(""),
+  hashedPassword: varchar("hashed_password", { length: 255 }),
+  bio: text("bio").notNull().default(""),
+  baner: varchar("baner", { length: 255 }).notNull().default(""),
+  status: varchar("status", { length: 255 }),
+  lastSeen: timestamp("last_seen").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
 
-export const chats = pgTable(
-  "chats",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(generateId(10)),
-    name: varchar("name", { length: 255 }).notNull().default(""),
-    image: varchar("image", { length: 255 }).notNull().default(""),
-    desc: text("desc").notNull().default(""),
-    invitedCode: varchar("invited_code", { length: 36 })
-      .notNull()
-      .default(generateId(10)),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-    isGroup: boolean("is_group").notNull().default(false),
-  },
-  (chats) => ({
-    invitedCodeIndex: uniqueIndex("chats_invited_code_idx").on(
-      chats.invitedCode
-    ),
-    isGroupIndex: index("chats_is_group_idx").on(chats.isGroup),
-  })
-);
+export const userRelations = relations(user, ({ many }) => ({
+  member: many(member),
+  senderMessage: many(message),
+  messageReads: many(messageReads),
+  junk: many(junk),
+}));
 
-export const members = pgTable(
-  "members",
+export const chat = pgTable("chat", {
+  id: varchar("id", { length: 36 })
+    .primaryKey()
+    .$defaultFn(() => generateId(10)),
+  name: varchar("name", { length: 255 }).notNull().default(""),
+  image: varchar("image", { length: 255 }).notNull().default(""),
+  desc: text("desc").notNull().default(""),
+  invitedCode: varchar("invited_code", { length: 255 })
+    .notNull()
+    .$defaultFn(() => generateId(10)),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  isGroup: boolean("is_group").notNull().default(false),
+});
+
+export const chatRelations = relations(chat, ({ many }) => ({
+  member: many(member),
+  message: many(message),
+  messageReads: many(messageReads),
+  junk: many(junk),
+}));
+
+export const member = pgTable(
+  "member",
   {
-    id: varchar("id", { length: 36 }).primaryKey().default(generateId(10)),
-    chatId: varchar("chat_id", { length: 36 }).notNull(),
-    userId: varchar("user_id", { length: 36 }).notNull(),
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .$defaultFn(() => generateId(10)),
+    chatId: varchar("chat_id", { length: 36 })
+      .references(() => chat.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: varchar("user_id", { length: 36 })
+      .references(() => user.id, { onDelete: "cascade" })
+      .notNull(),
     name: varchar("name", { length: 255 }),
     role: varchar("role", { length: 255 }).notNull().default(""),
     unreadCount: integer("unread_count").notNull().default(0),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (members) => ({
-    chatIdIndex: index("members_chat_id_idx").on(members.chatId),
-    userIdIndex: index("members_user_id_idx").on(members.userId),
+  (table) => ({
+    chatIndex: index("member_chat_idx").on(table.chatId),
+    userIndex: index("member_user_idx").on(table.userId),
   })
 );
 
-export const messages = pgTable(
-  "messages",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(generateId(10)),
-    content: text("content"),
-    senderId: varchar("sender_id", { length: 36 }).notNull(),
-    chatId: varchar("chat_id", { length: 36 }).notNull(),
-    replyToId: varchar("reply_to_id", { length: 36 }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (messages) => ({
-    senderIdIndex: index("messages_sender_id_idx").on(messages.senderId),
-    chatIdIndex: index("messages_chat_id_idx").on(messages.chatId),
-  })
-);
+export const memberRelations = relations(member, ({ one }) => ({
+  user: one(user, { fields: [member.userId], references: [user.id] }),
+  chat: one(chat, { fields: [member.chatId], references: [chat.id] }),
+}));
+
+export const message = pgTable("message", {
+  id: varchar("id", { length: 36 })
+    .primaryKey()
+    .$defaultFn(() => generateId(10)),
+  content: text("content"),
+  senderId: varchar("sender_id", { length: 36 })
+    .references(() => user.id, { onDelete: "cascade" })
+    .notNull(),
+  chatId: varchar("chat_id", { length: 36 })
+    .references(() => chat.id, { onDelete: "cascade" })
+    .notNull(),
+  replyToId: varchar("reply_to_id", { length: 36 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const messageRelations = relations(message, ({ one, many }) => ({
+  sender: one(user, { fields: [message.senderId], references: [user.id] }),
+  chat: one(chat, { fields: [message.chatId], references: [chat.id] }),
+  replyTo: one(message, {
+    fields: [message.replyToId],
+    references: [message.id],
+  }),
+  media: many(media),
+  messageReads: many(messageReads),
+}));
+
+export const junk = pgTable("junk", {
+  id: varchar("id", { length: 36 })
+    .primaryKey()
+    .$defaultFn(() => generateId(10)),
+  userId: varchar("user_id", { length: 36 })
+    .references(() => user.id, { onDelete: "cascade" })
+    .notNull(),
+  chatId: varchar("chat_id", { length: 36 })
+    .references(() => chat.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const junkRelations = relations(junk, ({ one }) => ({
+  user: one(user, { fields: [junk.userId], references: [user.id] }),
+  chat: one(chat, { fields: [junk.chatId], references: [chat.id] }),
+}));
 
 export const messageReads = pgTable(
   "message_reads",
   {
-    id: varchar("id", { length: 36 }).primaryKey().default(generateId(10)),
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .$defaultFn(() => generateId(10)),
     chatId: varchar("chat_id", { length: 36 }).notNull(),
     messageId: varchar("message_id", { length: 36 }).notNull(),
     userId: varchar("user_id", { length: 36 }).notNull(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (messageReads) => ({
-    uniqueReadIndex: uniqueIndex("message_reads_unique_idx").on(
-      messageReads.userId,
-      messageReads.messageId,
-      messageReads.chatId
+  (table) => ({
+    uniqueRead: uniqueIndex("unique_user_message_chat").on(
+      table.userId,
+      table.messageId,
+      table.chatId
     ),
   })
 );
 
+export const messageReadsRelations = relations(messageReads, ({ one }) => ({
+  user: one(user, { fields: [messageReads.userId], references: [user.id] }),
+  chat: one(chat, { fields: [messageReads.chatId], references: [chat.id] }),
+  message: one(message, {
+    fields: [messageReads.messageId],
+    references: [message.id],
+  }),
+}));
+
 export const media = pgTable(
   "media",
   {
-    id: varchar("id", { length: 36 }).primaryKey().default(generateId(10)),
-    value: text("value").notNull(),
-    caption: text("caption").notNull().default(""),
-    messageId: varchar("message_id", { length: 36 }).notNull(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .$defaultFn(() => generateId(10)),
+    value: varchar("value", { length: 255 }).notNull(),
+    caption: text("caption").default("").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    messageId: varchar("message_id", { length: 36 })
+      .references(() => message.id, { onDelete: "cascade" })
+      .notNull(),
   },
-  (media) => ({
-    messageIdIndex: index("media_message_id_idx").on(media.messageId),
+  (table) => ({
+    messageIndex: index("media_message_idx").on(table.messageId),
   })
 );
 
-export const junk = pgTable(
-  "junk",
-  {
-    id: varchar("id", { length: 36 }).primaryKey().default(generateId(10)),
-    userId: varchar("user_id", { length: 36 }).notNull(),
-    chatId: varchar("chat_id", { length: 36 }).notNull(),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (junk) => ({
-    userIdIndex: index("junk_user_id_idx").on(junk.userId),
-    chatIdIndex: index("junk_chat_id_idx").on(junk.chatId),
-  })
-);
-
-// Define foreign keys and relationships
-relations(users, ({ many }) => ({
-  senderMessages: many(messages),
-  junk: many(junk),
-}));
-
-relations(chats, ({ many }) => ({
-  members: many(members),
-  messages: many(messages),
-  junk: many(junk),
-}));
-
-relations(members, ({ one }) => ({
-  user: one(users, { fields: [members.userId], references: [users.id] }),
-  chat: one(chats, { fields: [members.chatId], references: [chats.id] }),
-}));
-
-relations(messages, ({ one, many }) => ({
-  sender: one(users, { fields: [messages.senderId], references: [users.id] }),
-  chat: one(chats, { fields: [messages.chatId], references: [chats.id] }),
-  replyTo: one(messages, {
-    fields: [messages.replyToId],
-    references: [messages.id],
-  }),
-  replies: many(messages),
-  media: many(media),
-}));
-
-relations(media, ({ one }) => ({
-  message: one(messages, {
+export const mediaRelations = relations(media, ({ one }) => ({
+  message: one(message, {
     fields: [media.messageId],
-    references: [messages.id],
+    references: [message.id],
   }),
-}));
-
-relations(junk, ({ one }) => ({
-  user: one(users, { fields: [junk.userId], references: [users.id] }),
-  chat: one(chats, { fields: [junk.chatId], references: [chats.id] }),
 }));

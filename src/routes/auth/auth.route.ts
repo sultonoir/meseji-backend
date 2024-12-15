@@ -6,7 +6,7 @@ import { Argon2id } from "oslo/password";
 import { db } from "@/db";
 import { setSignedCookie } from "hono/cookie";
 import { authMiddleware } from "@/middleware/auth.middleware";
-import { users } from "@/db/schema";
+import { user } from "@/db/schema";
 
 const argon2id = new Argon2id();
 const ONE_WEEK_IN_SECONDS = 7 * 86400; // 7 hari dalam detik
@@ -16,7 +16,7 @@ auth
   .post("/login", singinInput, async (c) => {
     const { email, password } = c.req.valid("json");
 
-    const existingUser = await db.query.users.findFirst({
+    const existingUser = await db.query.user.findFirst({
       where: (u, { eq }) => eq(u.email, email),
     });
 
@@ -65,7 +65,7 @@ auth
   .post("/signup", signupInput, async (c) => {
     const { email, password, name, username } = c.req.valid("json");
 
-    const existingUser = await db.query.users.findFirst({
+    const existingUser = await db.query.user.findFirst({
       where: (u, { or, eq }) =>
         or(eq(u.email, email), eq(u.username, username)),
     });
@@ -79,16 +79,16 @@ auth
 
     const hashedPassword = await argon2id.hash(password);
 
-    const user = await db
-      .insert(users)
+    const [res] = await db
+      .insert(user)
       .values({ name, email, username, hashedPassword })
       .returning();
 
     const payload = {
-      id: user.at(0)?.id,
-      name: user.at(0)?.name,
-      image: user.at(0)?.image,
-      username: user.at(0)?.username,
+      id: res.id,
+      name: res.name,
+      image: res.image,
+      username: res.username,
     };
 
     const secret = process.env.JWT_SECRET as string;
