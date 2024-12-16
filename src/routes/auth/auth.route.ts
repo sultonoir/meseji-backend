@@ -6,7 +6,7 @@ import { Argon2id } from "oslo/password";
 import { db } from "@/db";
 import { setSignedCookie } from "hono/cookie";
 import { authMiddleware } from "@/middleware/auth.middleware";
-import { user } from "@/db/schema";
+import { member, user } from "@/db/schema";
 
 const argon2id = new Argon2id();
 const ONE_WEEK_IN_SECONDS = 7 * 86400; // 7 hari dalam detik
@@ -79,10 +79,20 @@ auth
 
     const hashedPassword = await argon2id.hash(password);
 
-    const [res] = await db
-      .insert(user)
-      .values({ name, email, username, hashedPassword })
-      .returning();
+    const res = await db.transaction(async (tx) => {
+      const [createUser] = await db
+        .insert(user)
+        .values({ name, email, username, hashedPassword })
+        .returning();
+
+      await tx.insert(member).values({
+        chatId: process.env.GROUP_ID as string,
+        userId: createUser.id,
+        name : createUser.name,
+      });
+
+      return createUser;
+    });
 
     const payload = {
       id: res.id,

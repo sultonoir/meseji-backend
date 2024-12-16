@@ -80,3 +80,22 @@ export const QuerySchema = zValidator("query", querySchema, (result, c) => {
     );
   }
 });
+
+const chatlistQuery = z.object({
+  userId: z.string(),
+});
+
+export const validationChatlist = zValidator(
+  "query",
+  chatlistQuery,
+  (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          message: "Validation error",
+        },
+        422
+      );
+    }
+  }
+);

@@ -3,20 +3,32 @@ import { Chatlist, CreateChatGroup, SendMessage } from "./chat.input";
 import { generateId } from "@/lib/generateId";
 import { chat, junk, member, message } from "@/db/schema";
 import { media as images } from "@/db/schema";
-import { and, eq, not, sql } from "drizzle-orm";
+import { and, eq, inArray, not, or, sql } from "drizzle-orm";
 
 export async function getChatlist(userId: string): Promise<Chatlist[]> {
+  // Cari semua chat ID di mana userId adalah anggota
+  const memberChats = await db.query.member.findMany({
+    where: eq(member.userId, userId),
+    columns: {
+      chatId: true,
+    },
+  });
+
+  // Ambil semua chat ID yang ditemukan
+  const chatIds = memberChats.map((m) => m.chatId);
+
+  // Ambil chat berdasarkan chat ID yang relevan
   const chats = await db.query.chat.findMany({
+    where: inArray(chat.id, chatIds),
     with: {
-      message: {
-        limit: 1,
-        orderBy: (m, { desc }) => [desc(m.createdAt)],
-      },
       member: {
-        where: (m, { eq }) => eq(m.userId, userId),
         with: {
           user: true,
         },
+      },
+      message: {
+        limit: 1,
+        orderBy: (m, { desc }) => [desc(m.createdAt)],
       },
     },
   });
@@ -141,23 +153,29 @@ export async function createChatPersonal({
 }): Promise<Chatlist> {
   const chatId = generateId(10);
   const personal = await db.transaction(async (tx) => {
-    const existingChat = await tx.query.chat.findFirst({
-      where: and(
-        eq(chat.isGroup, false),
-        eq(member.userId, userId),
-        eq(member.userId, userId)
-      ),
+    const existingChat = await db.query.chat.findFirst({
+      where: (table, { inArray, and, eq }) =>
+        and(
+          eq(table.isGroup, false), // Pastikan bukan grup
+          inArray(
+            table.id,
+            db
+              .select({ chatId: member.chatId }) // Subquery memilih chatId
+              .from(member)
+              .where(or(eq(member.userId, userId), eq(member.userId, other)))
+              .groupBy(member.chatId) // Kelompokkan berdasarkan chatId
+              .having(
+                sql`COUNT(DISTINCT ${member.userId}) = 2` // Validasi jumlah anggota = 2
+              )
+          )
+        ),
       with: {
-        message: {
-          with: {
-            media: true,
-          },
-        },
         member: {
           with: {
             user: true,
           },
-        },
+        }, // Ambil relasi member untuk validasi
+        message: true,
       },
     });
 
@@ -211,7 +229,7 @@ export async function createChatPersonal({
       id: newChat.id,
       name: otherMember?.user.name ?? "",
       image: otherMember?.user.image ?? "",
-      unreadCount: 1,
+      unreadCount: 0,
       lastMessage: content,
       lastSent: new Date(),
       isGroup: false,
@@ -296,7 +314,7 @@ export async function removeChat({
   chatId: string;
   userId: string;
 }) {
-  const chat = await db
+  const [chat] = await db
     .insert(junk)
     .values({
       chatId,

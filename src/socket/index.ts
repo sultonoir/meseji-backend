@@ -5,6 +5,7 @@ import { Server } from "socket.io";
 import { createMiddleware } from "hono/factory";
 import { SendMessage } from "@/routes/chat/chat.input";
 import { sendMessage } from "@/routes/chat/chat.service";
+import { updateUser } from "@/routes/user/user.service";
 
 let io: Server;
 const online: string[] = [];
@@ -47,7 +48,8 @@ export function initWebsocket(server: any) {
       io.to(message.chatId).emit("sendMessage", result);
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
+      await updateUser({ userId });
       const index = online.indexOf(userId);
       if (index !== -1) {
         online.splice(index, 1);
