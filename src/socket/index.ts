@@ -32,6 +32,10 @@ export function initWebsocket(server: any) {
       online,
     });
 
+    socket.on("chat message", (msg) => {
+      io.emit("chat message", msg);
+    });
+
     io.emit("getOnlineUsers", online);
 
     socket.on("join group", (chatId) => {

@@ -1,6 +1,6 @@
 import { Env } from "@/types";
 import { Hono } from "hono";
-import { CreateDm, QuerySchema, validationRemoveMess } from "./chat.input";
+import { QuerySchema, validationRemoveMess } from "./chat.input";
 import { authMiddleware } from "@/middleware/auth.middleware";
 import {
   getAllmessage,

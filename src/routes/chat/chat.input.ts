@@ -22,23 +22,6 @@ const SendMessage = z.object({
 
 export type SendMessage = z.infer<typeof SendMessage>;
 
-const dmSchema = z.object({
-  userId: z.string(),
-  other: z.string(),
-  content: z.string(),
-});
-
-export const CreateDm = zValidator("json", dmSchema, (result, c) => {
-  if (!result.success) {
-    return c.json(
-      {
-        message: "Validation error",
-      },
-      422
-    );
-  }
-});
-
 const querySchema = z.object({
   cursor: z.string().optional(),
 });

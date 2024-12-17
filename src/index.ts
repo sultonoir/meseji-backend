@@ -10,6 +10,7 @@ import { chat } from "./routes/chat/chat.route";
 import { user } from "./routes/user/user.route";
 import { member } from "./routes/member/member.route";
 import { group } from "./routes/group/group.route";
+import { dm } from "./routes/dm/dm.route";
 
 const app = new Hono<Env>();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -120,4 +121,5 @@ app
   .route("/", chat)
   .route("/", user)
   .route("/", member)
-  .route("/", group);
+  .route("/", group)
+  .route("/", dm);
