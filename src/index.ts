@@ -6,9 +6,10 @@ import { Env } from "./types";
 import { html } from "hono/html";
 import ioMiddleware, { initWebsocket } from "./socket";
 import { auth } from "./routes/auth/auth.route";
-import { group } from "./routes/chat/chat.route";
+import { chat } from "./routes/chat/chat.route";
 import { user } from "./routes/user/user.route";
 import { member } from "./routes/member/member.route";
+import { group } from "./routes/group/group.route";
 
 const app = new Hono<Env>();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -116,6 +117,7 @@ app
     );
   })
   .route("/", auth)
-  .route("/", group)
+  .route("/", chat)
   .route("/", user)
-  .route("/", member);
+  .route("/", member)
+  .route("/", group);

@@ -1,26 +1,6 @@
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 
-export const GroupSchema = z.object({
-  name: z.string({
-    required_error: "Please enter valide name",
-  }),
-  image: z.string({
-    required_error: "Please enter valide image",
-  }),
-});
-
-export const CreateChatGroup = zValidator("json", GroupSchema, (result, c) => {
-  if (!result.success) {
-    return c.json(
-      {
-        message: "Validation error",
-      },
-      422
-    );
-  }
-});
-
 export type Chatlist = {
   id: string;
   name: string;
@@ -41,13 +21,6 @@ const SendMessage = z.object({
 });
 
 export type SendMessage = z.infer<typeof SendMessage>;
-
-export type CreateChatGroup = {
-  userId: string;
-  name: string;
-  image: string;
-  username?: string;
-};
 
 const dmSchema = z.object({
   userId: z.string(),
@@ -88,25 +61,6 @@ const chatlistQuery = z.object({
 export const validationChatlist = zValidator(
   "query",
   chatlistQuery,
-  (result, c) => {
-    if (!result.success) {
-      return c.json(
-        {
-          message: "Validation error",
-        },
-        422
-      );
-    }
-  }
-);
-
-const outGroupSchme = z.object({
-  chatId: z.string(),
-});
-
-export const validationOutGroup = zValidator(
-  "json",
-  outGroupSchme,
   (result, c) => {
     if (!result.success) {
       return c.json(

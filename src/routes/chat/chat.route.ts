@@ -1,27 +1,18 @@
 import { Env } from "@/types";
 import { Hono } from "hono";
-import {
-  CreateChatGroup,
-  CreateDm,
-  QuerySchema,
-  validationOutGroup,
-  validationRemoveMess,
-} from "./chat.input";
+import { CreateDm, QuerySchema, validationRemoveMess } from "./chat.input";
 import { authMiddleware } from "@/middleware/auth.middleware";
 import {
-  createChatGroup,
-  createChatPersonal,
   getAllmessage,
   getChatByid,
   getChatlist,
-  outGroup,
   removeChat,
   removeMessage,
 } from "./chat.service";
 
-export const group = new Hono<Env>().basePath("/chat");
+export const chat = new Hono<Env>().basePath("/chat");
 
-group
+chat
   .use(authMiddleware)
   .get("/", async (c) => {
     const user = c.get("user");
@@ -52,54 +43,6 @@ group
       userId: session.id,
     });
     return c.json(messages);
-  })
-  .post("/group", CreateChatGroup, async (c) => {
-    const user = c.get("user");
-    const { name, image } = c.req.valid("json");
-    const group = await createChatGroup({
-      userId: user.id,
-      username: user.name,
-      name,
-      image,
-    });
-
-    if (!group) {
-      return c.json(
-        {
-          message: "Error create group",
-        },
-        400
-      );
-    }
-
-    return c.json(group);
-  })
-  .post("/out", validationOutGroup, async (c) => {
-    const { id } = c.get("user");
-    const { chatId } = c.req.valid("json");
-    const result = await outGroup({ chatId, userId: id });
-
-    return c.json(result);
-  })
-  .post("/dm", CreateDm, async (c) => {
-    const { id } = c.get("user");
-    const data = c.req.valid("json");
-    const chat = await createChatPersonal({
-      content: data.content,
-      userId: id,
-      other: data.other,
-    });
-
-    if (!chat) {
-      return c.json(
-        {
-          message: "Error send message",
-        },
-        500
-      );
-    }
-
-    return c.json(chat);
   })
   .delete("/chatlist/:id", async (c) => {
     const id = c.req.param("id");
