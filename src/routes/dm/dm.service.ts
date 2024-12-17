@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { generateId } from "@/lib/generateId";
 import { Chatlist } from "../chat/chat.input";
-import { chat, junk, member, message } from "@/db/schema";
+import { chat, junk, junkMessage, member, message } from "@/db/schema";
 import { and, eq, or, sql } from "drizzle-orm";
 
 export async function createChatPersonal({
@@ -129,4 +129,23 @@ async function restoreChatFromJunk(
         )
       );
   }
+}
+
+export async function removeChat({
+  chatId,
+  userId,
+}: {
+  chatId: string;
+  userId: string;
+}) {
+  const [chat] = await db
+    .insert(junk)
+    .values({
+      chatId,
+      userId,
+    })
+    .returning();
+
+  await db.insert(junkMessage).values({ chatId, userId });
+  return chat.chatId;
 }

@@ -219,25 +219,6 @@ export async function getAllmessage({
   };
 }
 
-export async function removeChat({
-  chatId,
-  userId,
-}: {
-  chatId: string;
-  userId: string;
-}) {
-  const [chat] = await db
-    .insert(junk)
-    .values({
-      chatId,
-      userId,
-    })
-    .returning();
-
-  await db.insert(junkMessage).values({ chatId, userId });
-  return chat.chatId;
-}
-
 export async function removeMessage(params: {
   userId: string;
   chatId: string;

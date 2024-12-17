@@ -6,7 +6,6 @@ import {
   getAllmessage,
   getChatByid,
   getChatlist,
-  removeChat,
   removeMessage,
 } from "./chat.service";
 
@@ -43,12 +42,6 @@ chat
       userId: session.id,
     });
     return c.json(messages);
-  })
-  .delete("/chatlist/:id", async (c) => {
-    const id = c.req.param("id");
-    const user = c.get("user");
-    const result = await removeChat({ userId: user.id, chatId: id });
-    return c.json(result);
   })
   .delete("/message", validationRemoveMess, async (c) => {
     const body = c.req.valid("json");
