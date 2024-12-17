@@ -8,6 +8,7 @@ import ioMiddleware, { initWebsocket } from "./socket";
 import { auth } from "./routes/auth/auth.route";
 import { group } from "./routes/chat/chat.route";
 import { user } from "./routes/user/user.route";
+import { member } from "./routes/member/member.route";
 
 const app = new Hono<Env>();
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
@@ -116,4 +117,5 @@ app
   })
   .route("/", auth)
   .route("/", group)
-  .route("/", user);
+  .route("/", user)
+  .route("/", member);

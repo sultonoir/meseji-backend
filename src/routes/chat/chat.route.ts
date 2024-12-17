@@ -1,6 +1,12 @@
 import { Env } from "@/types";
 import { Hono } from "hono";
-import { CreateChatGroup, CreateDm, QuerySchema } from "./chat.input";
+import {
+  CreateChatGroup,
+  CreateDm,
+  QuerySchema,
+  validationOutGroup,
+  validationRemoveMess,
+} from "./chat.input";
 import { authMiddleware } from "@/middleware/auth.middleware";
 import {
   createChatGroup,
@@ -8,7 +14,9 @@ import {
   getAllmessage,
   getChatByid,
   getChatlist,
+  outGroup,
   removeChat,
+  removeMessage,
 } from "./chat.service";
 
 export const group = new Hono<Env>().basePath("/chat");
@@ -37,8 +45,12 @@ group
   .get("/:id/message", QuerySchema, async (c) => {
     const { cursor } = c.req.valid("query");
     const id = c.req.param("id");
-
-    const messages = await getAllmessage({ id, cursor: cursor });
+    const session = c.get("user");
+    const messages = await getAllmessage({
+      id,
+      cursor: cursor,
+      userId: session.id,
+    });
     return c.json(messages);
   })
   .post("/group", CreateChatGroup, async (c) => {
@@ -62,6 +74,13 @@ group
 
     return c.json(group);
   })
+  .post("/out", validationOutGroup, async (c) => {
+    const { id } = c.get("user");
+    const { chatId } = c.req.valid("json");
+    const result = await outGroup({ chatId, userId: id });
+
+    return c.json(result);
+  })
   .post("/dm", CreateDm, async (c) => {
     const { id } = c.get("user");
     const data = c.req.valid("json");
@@ -82,9 +101,24 @@ group
 
     return c.json(chat);
   })
-  .delete("/:id", async (c) => {
+  .delete("/chatlist/:id", async (c) => {
     const id = c.req.param("id");
     const user = c.get("user");
     const result = await removeChat({ userId: user.id, chatId: id });
     return c.json(result);
+  })
+  .delete("/message", validationRemoveMess, async (c) => {
+    const body = c.req.valid("json");
+    const session = c.get("user");
+    try {
+      const result = await removeMessage({
+        userId: session.id,
+        chatId: body.chatId,
+        messageId: body.messageId,
+      });
+      return c.json(result);
+    } catch (error) {
+      const err = error as Error;
+      return c.json({ message: err.message }, 500);
+    }
   });

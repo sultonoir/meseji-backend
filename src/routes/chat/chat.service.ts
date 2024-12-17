@@ -1,9 +1,9 @@
 import { db } from "@/db";
 import { Chatlist, CreateChatGroup, SendMessage } from "./chat.input";
 import { generateId } from "@/lib/generateId";
-import { chat, junk, member, message } from "@/db/schema";
+import { chat, junk, junkMessage, member, message } from "@/db/schema";
 import { media as images } from "@/db/schema";
-import { and, eq, inArray, not, or, sql } from "drizzle-orm";
+import { and, eq, inArray, notExists, or, sql } from "drizzle-orm";
 
 export async function getChatlist(userId: string): Promise<Chatlist[]> {
   // Cari semua chat ID di mana userId adalah anggota
@@ -16,10 +16,17 @@ export async function getChatlist(userId: string): Promise<Chatlist[]> {
 
   // Ambil semua chat ID yang ditemukan
   const chatIds = memberChats.map((m) => m.chatId);
-
   // Ambil chat berdasarkan chat ID yang relevan
   const chats = await db.query.chat.findMany({
-    where: inArray(chat.id, chatIds),
+    where: and(
+      inArray(chat.id, chatIds),
+      notExists(
+        db
+          .select()
+          .from(junk)
+          .where(and(eq(junk.userId, userId), eq(junk.chatId, chat.id))) // Menyaring berdasarkan userId dan chatId
+      )
+    ),
     with: {
       member: {
         with: {
@@ -84,13 +91,6 @@ export async function sendMessage({
         }))
       );
     }
-    // 2. Perbarui unreadCount untuk anggota lain
-    await tx
-      .update(member)
-      .set({
-        unreadCount: sql`${member.unreadCount} + 1`,
-      })
-      .where(and(not(eq(member.userId, senderId)), eq(member.chatId, chatId)));
 
     // 3. Output send message
     const result = await tx.query.message.findFirst({
@@ -103,7 +103,17 @@ export async function sendMessage({
             image: true,
           },
         },
-        replyTo: true,
+        replyTo: {
+          with: {
+            media: true,
+            sender: {
+              columns: {
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
     });
     return result;
@@ -180,7 +190,13 @@ export async function createChatPersonal({
     });
 
     if (existingChat) {
+      // restore
+      await restoreChatFromJunk(userId, existingChat.id, other);
       // Jika chat sudah ada, kembalikan chat yang sudah ada
+      const [mess] = await tx
+        .insert(message)
+        .values({ senderId: userId, content, chatId: existingChat.id })
+        .returning();
       const otherMember = existingChat.member.find(
         (item) => item.userId !== userId
       );
@@ -190,8 +206,8 @@ export async function createChatPersonal({
         name: otherMember?.user.name ?? "",
         image: otherMember?.user.image ?? "",
         unreadCount: otherMember?.unreadCount ?? 0,
-        lastMessage: existingChat.message[0]?.content ?? "",
-        lastSent: existingChat.message[0]?.createdAt ?? new Date(0),
+        lastMessage: mess.content ?? "",
+        lastSent: mess.createdAt,
         isGroup: existingChat.isGroup,
       };
     }
@@ -266,6 +282,7 @@ export async function getChatByid({
       : otherMember?.user.name || "Unknown User",
     image: chat?.isGroup ? chat.image || "" : otherMember?.user.image || "",
     lastOnline: otherMember?.user.lastSeen,
+    userId: otherMember?.userId,
   };
 
   return result;
@@ -274,16 +291,33 @@ export async function getChatByid({
 export async function getAllmessage({
   id,
   cursor,
+  userId, // Tambahkan parameter userId untuk filter berdasarkan junk
 }: {
   id: string;
   cursor?: string;
+  userId: string; // userId untuk mencari waktu junk terkait
 }) {
   const pageSize = 10;
+
+  // Ambil waktu dari junk jika ada
+  const junkEntry = await db.query.junkMessage.findFirst({
+    where: (junk, { eq, and }) =>
+      and(eq(junk.chatId, id), eq(junk.userId, userId)),
+    columns: {
+      createdAt: true, // Ambil waktu createdAt dari junk
+    },
+  });
+
+  // Jika ada entri di junk, gunakan createdAt sebagai batas
+  const junkCreatedAt = junkEntry?.createdAt || null;
+
+  // Query untuk mengambil pesan, filter berdasarkan junkCreatedAt
   const messages = await db.query.message.findMany({
-    where: (_, { eq, and }) =>
+    where: (m, { eq, and, gt }) =>
       and(
-        eq(message.chatId, id),
-        cursor ? sql`${message.createdAt} < ${cursor}` : undefined
+        eq(m.chatId, id),
+        cursor ? sql`${m.createdAt} < ${cursor}` : undefined,
+        junkCreatedAt ? gt(m.createdAt, junkCreatedAt) : undefined
       ),
     limit: pageSize + 1,
     with: {
@@ -294,10 +328,22 @@ export async function getAllmessage({
           image: true,
         },
       },
+      replyTo: {
+        with: {
+          media: true,
+          sender: {
+            columns: {
+              name: true,
+              image: true,
+            },
+          },
+        },
+      },
     },
     orderBy: (o, { desc }) => [desc(o.createdAt)],
   });
 
+  // Tentukan cursor untuk paging
   const nextCursor =
     messages.length > pageSize ? messages[pageSize].createdAt : null;
 
@@ -322,5 +368,59 @@ export async function removeChat({
     })
     .returning();
 
-  return chat;
+  await db.insert(junkMessage).values({ chatId, userId });
+  return chat.chatId;
+}
+
+export async function removeMessage(params: {
+  userId: string;
+  chatId: string;
+  messageId: string;
+}) {
+  const [result] = await db
+    .delete(message)
+    .where(
+      and(
+        eq(message.senderId, params.userId),
+        eq(message.id, params.messageId),
+        eq(message.chatId, params.chatId)
+      )
+    )
+    .returning();
+  return result.id;
+}
+
+async function restoreChatFromJunk(
+  userId: string,
+  chatId: string,
+  otherId: string
+): Promise<void> {
+  // Cek apakah chat ada di junk untuk user ini
+  const junkEntry = await db.query.junk.findFirst({
+    where: (junk, { eq, and }) =>
+      and(eq(junk.userId, userId), eq(junk.chatId, chatId)),
+  });
+
+  // Jika chat ada di junk, maka pindahkan kembali ke tabel chat
+  if (junkEntry) {
+    // Hapus chat dari junk
+    await db
+      .delete(junk)
+      .where(
+        and(
+          eq(junk.chatId, chatId),
+          or(eq(junk.userId, userId), eq(junk.userId, otherId))
+        )
+      );
+  }
+}
+
+export async function outGroup(params: { chatId: string; userId: string }) {
+  const [result] = await db
+    .delete(member)
+    .where(
+      and(eq(member.userId, params.userId), eq(member.chatId, params.chatId))
+    )
+    .returning();
+  return result.chatId;
 }

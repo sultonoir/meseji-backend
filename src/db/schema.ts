@@ -33,6 +33,7 @@ export const userRelations = relations(user, ({ many }) => ({
   senderMessage: many(message),
   messageReads: many(messageReads),
   junk: many(junk),
+  junkMessage: many(junkMessage),
 }));
 
 export const chat = pgTable("chat", {
@@ -55,6 +56,7 @@ export const chatRelations = relations(chat, ({ many }) => ({
   message: many(message),
   messageReads: many(messageReads),
   junk: many(junk),
+  junkMessage: many(junkMessage),
 }));
 
 export const member = pgTable(
@@ -71,6 +73,7 @@ export const member = pgTable(
       .notNull(),
     name: varchar("name", { length: 255 }),
     role: varchar("role", { length: 255 }).notNull().default(""),
+    haveAccess: boolean("have_access").default(false),
     unreadCount: integer("unread_count").notNull().default(0),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -111,6 +114,25 @@ export const messageRelations = relations(message, ({ one, many }) => ({
   }),
   media: many(media),
   messageReads: many(messageReads),
+}));
+
+export const junkMessage = pgTable("junkMessage", {
+  id: varchar("id", { length: 36 })
+    .primaryKey()
+    .$defaultFn(() => generateId(10)),
+  userId: varchar("user_id", { length: 36 })
+    .references(() => user.id, { onDelete: "cascade" })
+    .notNull(),
+  chatId: varchar("chat_id", { length: 36 })
+    .references(() => chat.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const junkMessageRealtion = relations(junkMessage, ({ one }) => ({
+  user: one(user, { fields: [junkMessage.userId], references: [user.id] }),
+  chat: one(chat, { fields: [junkMessage.chatId], references: [chat.id] }),
 }));
 
 export const junk = pgTable("junk", {

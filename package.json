@@ -4,9 +4,9 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "push": "npx prisma db push",
-    "generate": "npx prisma generate --no-engine",
-    "studio": "npx prisma studio"
+    "push": "npx drizzle-kit push",
+    "generate": "npx drizzle-kit generate",
+    "studio": "npx drizzle-kit studio"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

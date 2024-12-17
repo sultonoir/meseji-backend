@@ -99,3 +99,42 @@ export const validationChatlist = zValidator(
     }
   }
 );
+
+const outGroupSchme = z.object({
+  chatId: z.string(),
+});
+
+export const validationOutGroup = zValidator(
+  "json",
+  outGroupSchme,
+  (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          message: "Validation error",
+        },
+        422
+      );
+    }
+  }
+);
+
+const removeMessage = z.object({
+  messageId: z.string(),
+  chatId: z.string(),
+});
+
+export const validationRemoveMess = zValidator(
+  "json",
+  removeMessage,
+  (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          message: "Validation error",
+        },
+        422
+      );
+    }
+  }
+);
