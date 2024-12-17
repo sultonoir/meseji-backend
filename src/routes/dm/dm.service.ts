@@ -113,8 +113,11 @@ async function restoreChatFromJunk(
 ): Promise<void> {
   // Cek apakah chat ada di junk untuk user ini
   const junkEntry = await db.query.junk.findFirst({
-    where: (junk, { eq, and }) =>
-      and(eq(junk.userId, userId), eq(junk.chatId, chatId)),
+    where: (junk, { eq, and, or }) =>
+      and(
+        eq(junk.chatId, chatId),
+        or(eq(junk.userId, userId), eq(junk.userId, otherId))
+      ),
   });
 
   // Jika chat ada di junk, maka pindahkan kembali ke tabel chat

@@ -2,10 +2,11 @@ import { Env } from "@/types";
 import { Hono } from "hono";
 import { validationCreateDm } from "./dm.input";
 import { createChatPersonal, removeChat } from "./dm.service";
+import { authMiddleware } from "@/middleware/auth.middleware";
 
 export const dm = new Hono<Env>().basePath("/dm");
 
-dm.post("/", validationCreateDm, async (c) => {
+dm.post("/", validationCreateDm, authMiddleware, async (c) => {
   const { id } = c.get("user");
   const data = c.req.valid("json");
   const chat = await createChatPersonal({
