@@ -1,15 +1,6 @@
 import { db } from "@/db";
 import { member } from "@/db/schema";
 
-export async function getInviteCode({ code }: { code: string }) {
-  return await db.query.chat.findFirst({
-    where: (c, { eq }) => eq(c.invitedCode, code),
-    with: {
-      member: true,
-    },
-  });
-}
-
 export async function addMember({
   chatId,
   name,
