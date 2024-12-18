@@ -236,3 +236,37 @@ export async function removeMessage(params: {
     .returning();
   return result.id;
 }
+
+export async function getSearchMessage({
+  q,
+  chatId,
+}: {
+  q: string;
+  chatId: string;
+}) {
+  const messages = await db.query.message.findMany({
+    where: (m, { ilike, and, eq }) =>
+      and(eq(m.chatId, chatId), ilike(m.content, `%${q}%`)),
+    with: {
+      media: true,
+      sender: {
+        columns: {
+          name: true,
+          image: true,
+        },
+      },
+      replyTo: {
+        with: {
+          media: true,
+          sender: {
+            columns: {
+              name: true,
+              image: true,
+            },
+          },
+        },
+      },
+    },
+  });
+  return messages;
+}

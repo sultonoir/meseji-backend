@@ -88,7 +88,7 @@ auth
       await tx.insert(member).values({
         chatId: process.env.GROUP_ID as string,
         userId: createUser.id,
-        name : createUser.name,
+        name,
       });
 
       return createUser;

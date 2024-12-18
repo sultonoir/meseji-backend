@@ -7,24 +7,19 @@ import { sign } from "hono/jwt";
 import { setSignedCookie } from "hono/cookie";
 import { user as User } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { getUserWithContact } from "./user.service";
 
 export const user = new Hono<Env>().basePath("/user");
 
 user
   .use(authMiddleware)
   .get("/:id", async (c) => {
+    const session = c.get("user");
     const id = c.req.param("id");
 
-    const user = await db.query.user.findFirst({
-      where: (u, { eq }) => eq(u.id, id),
-      columns: {
-        id: true,
-        name: true,
-        status: true,
-        username: true,
-        baner: true,
-        image: true,
-      },
+    const user = await getUserWithContact({
+      userId: session.id,
+      targetUserId: id,
     });
 
     if (!user) {

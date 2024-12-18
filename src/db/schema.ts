@@ -7,6 +7,7 @@ import {
   uniqueIndex,
   index,
   integer,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { generateId } from "@/lib/generateId";
@@ -31,9 +32,43 @@ export const user = pgTable("user", {
 export const userRelations = relations(user, ({ many }) => ({
   member: many(member),
   senderMessage: many(message),
-  messageReads: many(messageReads),
   junk: many(junk),
   junkMessage: many(junkMessage),
+  contact: many(contact, { relationName: "owner" }),
+  friend: many(contact, { relationName: "friend" }),
+}));
+
+export const contact = pgTable(
+  "contact",
+  {
+    ownerId: varchar("owner_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    friendId: varchar("friend_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    // Index untuk mempercepat pencarian
+    ownerIndex: index("idx_owner_id").on(table.ownerId),
+    friendIndex: index("idx_friend_id").on(table.friendId),
+    // Unique constraint untuk mencegah duplikasi follow
+    uniqueFollow: unique().on(table.ownerId, table.friendId),
+  })
+);
+
+export const contactRelations = relations(contact, ({ one }) => ({
+  owner: one(user, {
+    fields: [contact.ownerId],
+    references: [user.id],
+    relationName: "owner",
+  }),
+  friend: one(user, {
+    fields: [contact.friendId],
+    references: [user.id],
+    relationName: "friend",
+  }),
 }));
 
 export const chat = pgTable("chat", {
@@ -54,7 +89,6 @@ export const chat = pgTable("chat", {
 export const chatRelations = relations(chat, ({ many }) => ({
   member: many(member),
   message: many(message),
-  messageReads: many(messageReads),
   junk: many(junk),
   junkMessage: many(junkMessage),
 }));
@@ -113,7 +147,6 @@ export const messageRelations = relations(message, ({ one, many }) => ({
     references: [message.id],
   }),
   media: many(media),
-  messageReads: many(messageReads),
 }));
 
 export const junkMessage = pgTable("junkMessage", {
@@ -154,35 +187,6 @@ export const junkRelations = relations(junk, ({ one }) => ({
   chat: one(chat, { fields: [junk.chatId], references: [chat.id] }),
 }));
 
-export const messageReads = pgTable(
-  "message_reads",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .$defaultFn(() => generateId(10)),
-    chatId: varchar("chat_id", { length: 36 }).notNull(),
-    messageId: varchar("message_id", { length: 36 }).notNull(),
-    userId: varchar("user_id", { length: 36 }).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (table) => ({
-    uniqueRead: uniqueIndex("unique_user_message_chat").on(
-      table.userId,
-      table.messageId,
-      table.chatId
-    ),
-  })
-);
-
-export const messageReadsRelations = relations(messageReads, ({ one }) => ({
-  user: one(user, { fields: [messageReads.userId], references: [user.id] }),
-  chat: one(chat, { fields: [messageReads.chatId], references: [chat.id] }),
-  message: one(message, {
-    fields: [messageReads.messageId],
-    references: [message.id],
-  }),
-}));
 
 export const media = pgTable(
   "media",

@@ -1,11 +1,16 @@
 import { Env } from "@/types";
 import { Hono } from "hono";
-import { QuerySchema, validationRemoveMess } from "./chat.input";
+import {
+  QuerySchema,
+  validationRemoveMess,
+  validationSearch,
+} from "./chat.input";
 import { authMiddleware } from "@/middleware/auth.middleware";
 import {
   getAllmessage,
   getChatByid,
   getChatlist,
+  getSearchMessage,
   removeMessage,
 } from "./chat.service";
 
@@ -42,6 +47,13 @@ chat
       userId: session.id,
     });
     return c.json(messages);
+  })
+  .get("/:id/search", validationSearch, async (c) => {
+    const query = c.req.valid("query");
+    const id = c.req.param("id");
+
+    const result = await getSearchMessage({ q: query.q, chatId: id });
+    return c.json(result);
   })
   .delete("/message", validationRemoveMess, async (c) => {
     const body = c.req.valid("json");

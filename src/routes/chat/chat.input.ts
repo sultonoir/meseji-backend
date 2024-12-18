@@ -75,3 +75,22 @@ export const validationRemoveMess = zValidator(
     }
   }
 );
+
+const searchMessageSchmea = z.object({
+  q: z.string(),
+});
+
+export const validationSearch = zValidator(
+  "query",
+  searchMessageSchmea,
+  (result, c) => {
+    if (!result.success) {
+      return c.json(
+        {
+          message: "Validation error",
+        },
+        422
+      );
+    }
+  }
+);
