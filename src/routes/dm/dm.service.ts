@@ -58,9 +58,10 @@ export async function createChatPersonal({
         name: otherMember?.user.name ?? "",
         image: otherMember?.user.image ?? "",
         unreadCount: otherMember?.unreadCount ?? 0,
-        lastMessage: mess.content ?? "",
+        lastMessage: `You : ${content}`,
         lastSent: mess.createdAt,
         isGroup: existingChat.isGroup,
+        userId: userId,
       };
     }
 
@@ -101,6 +102,7 @@ export async function createChatPersonal({
       lastMessage: content,
       lastSent: new Date(),
       isGroup: false,
+      userId,
     };
   });
   return personal;
@@ -149,6 +151,14 @@ export async function removeChat({
     })
     .returning();
 
-  await db.insert(junkMessage).values({ chatId, userId });
+  const messRemove = db.query.junkMessage.findFirst({
+    where: and(eq(junkMessage.chatId, chatId), eq(junkMessage.userId, userId)),
+  });
+
+  if (!messRemove) {
+    await db.insert(junkMessage).values({ chatId, userId });
+  }
+  await db.update(junkMessage).set({ userId, chatId, createdAt: new Date() });
+
   return chat.chatId;
 }

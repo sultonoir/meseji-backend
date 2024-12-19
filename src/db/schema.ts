@@ -149,19 +149,22 @@ export const messageRelations = relations(message, ({ one, many }) => ({
   media: many(media),
 }));
 
-export const junkMessage = pgTable("junkMessage", {
-  id: varchar("id", { length: 36 })
-    .primaryKey()
-    .$defaultFn(() => generateId(10)),
-  userId: varchar("user_id", { length: 36 })
-    .references(() => user.id, { onDelete: "cascade" })
-    .notNull(),
-  chatId: varchar("chat_id", { length: 36 })
-    .references(() => chat.id, { onDelete: "cascade" })
-    .notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const junkMessage = pgTable(
+  "junkMessage",
+  {
+    userId: varchar("user_id", { length: 36 })
+      .references(() => user.id, { onDelete: "cascade" })
+      .notNull(),
+    chatId: varchar("chat_id", { length: 36 })
+      .references(() => chat.id, { onDelete: "cascade" })
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueFollow: unique().on(table.chatId, table.userId),
+  })
+);
 
 export const junkMessageRealtion = relations(junkMessage, ({ one }) => ({
   user: one(user, { fields: [junkMessage.userId], references: [user.id] }),
@@ -186,7 +189,6 @@ export const junkRelations = relations(junk, ({ one }) => ({
   user: one(user, { fields: [junk.userId], references: [user.id] }),
   chat: one(chat, { fields: [junk.chatId], references: [chat.id] }),
 }));
-
 
 export const media = pgTable(
   "media",

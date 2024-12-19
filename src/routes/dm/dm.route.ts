@@ -9,6 +9,7 @@ export const dm = new Hono<Env>().basePath("/dm");
 dm.use(authMiddleware)
   .post("/", validationCreateDm, async (c) => {
     const { id } = c.get("user");
+    const io = c.get("io");
     const data = c.req.valid("json");
     const chat = await createChatPersonal({
       content: data.content,
@@ -24,7 +25,7 @@ dm.use(authMiddleware)
         500
       );
     }
-
+    io.emit('sendDm',chat)
     return c.json(chat);
   })
   .delete("/:id", async (c) => {

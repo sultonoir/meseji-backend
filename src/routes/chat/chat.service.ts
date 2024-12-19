@@ -3,7 +3,7 @@ import { Chatlist, SendMessage } from "./chat.input";
 import { generateId } from "@/lib/generateId";
 import { chat, junk, junkMessage, member, message } from "@/db/schema";
 import { media as images } from "@/db/schema";
-import { and, eq, inArray, notExists, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, notExists, or, sql } from "drizzle-orm";
 
 export async function getChatlist(userId: string): Promise<Chatlist[]> {
   // Cari semua chat ID di mana userId adalah anggota
@@ -194,12 +194,11 @@ export async function getAllmessage({
 
   // Query untuk mengambil pesan, filter berdasarkan junkCreatedAt
   const messages = await db.query.message.findMany({
-    where: (m, { eq, and, gt }) =>
-      and(
-        eq(m.chatId, id),
-        cursor ? sql`${m.createdAt} < ${cursor}` : undefined,
-        junkCreatedAt ? gt(m.createdAt, junkCreatedAt) : undefined
-      ),
+    where: and(
+      eq(message.chatId, id),
+      cursor ? sql`${message.createdAt} < ${cursor}` : undefined,
+      junkCreatedAt ? gt(message.createdAt, junkCreatedAt) : undefined
+    ),
     limit: pageSize + 1,
     with: {
       media: true,
