@@ -35,6 +35,18 @@ export async function getChatlist(userId: string): Promise<Chatlist[]> {
       },
       message: {
         limit: 1,
+        with: {
+          media: {
+            limit: 1,
+            orderBy: (media, { desc }) => [desc(media.createdAt)],
+          },
+          sender: {
+            columns: {
+              name: true,
+              id: true,
+            },
+          },
+        },
         orderBy: (m, { desc }) => [desc(m.createdAt)],
       },
     },
@@ -42,6 +54,9 @@ export async function getChatlist(userId: string): Promise<Chatlist[]> {
 
   return chats.map((chat) => {
     const lastMessage = chat.message[0] || null;
+    const lastMedia = lastMessage?.media?.length > 0 ? "Send images" : "";
+    const sender = lastMessage.sender.name;
+
     const currentUserMember = chat.member.find((m) => m.userId === userId);
     const otherMember = chat.member.find((m) => m.userId !== userId);
 
@@ -51,7 +66,7 @@ export async function getChatlist(userId: string): Promise<Chatlist[]> {
         ? chat.name || "Unknown Group"
         : otherMember?.user.name || "Unknown User",
       image: chat.isGroup ? chat.image || "" : otherMember?.user.image || "",
-      lastMessage: lastMessage?.content || "",
+      lastMessage: `${sender} : ${lastMedia || lastMessage?.content || ""}`,
       unreadCount: currentUserMember?.unreadCount || 0,
       lastSent: lastMessage?.createdAt || chat.createdAt,
       isGroup: chat.isGroup,
