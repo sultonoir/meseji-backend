@@ -15,7 +15,7 @@ export async function createChatPersonal({
 }): Promise<Chatlist> {
   const chatId = generateId(10);
   const personal = await db.transaction(async (tx) => {
-    const existingChat = await db.query.chat.findFirst({
+    const existingChat = await tx.query.chat.findFirst({
       where: (table, { inArray, and, eq }) =>
         and(
           eq(table.isGroup, false), // Pastikan bukan grup
@@ -61,7 +61,7 @@ export async function createChatPersonal({
         lastMessage: `You : ${content}`,
         lastSent: mess.createdAt,
         isGroup: existingChat.isGroup,
-        userId: userId,
+        senderId: userId,
       };
     }
 
@@ -102,7 +102,7 @@ export async function createChatPersonal({
       lastMessage: content,
       lastSent: new Date(),
       isGroup: false,
-      userId,
+      senderId: userId,
     };
   });
   return personal;
@@ -151,14 +151,26 @@ export async function removeChat({
     })
     .returning();
 
-  const messRemove = db.query.junkMessage.findFirst({
+  const messRemove = await db.query.junkMessage.findFirst({
     where: and(eq(junkMessage.chatId, chatId), eq(junkMessage.userId, userId)),
   });
 
+  console.log({ messRemove });
+
   if (!messRemove) {
-    await db.insert(junkMessage).values({ chatId, userId });
+    const createRemove = await db
+      .insert(junkMessage)
+      .values({ chatId, userId })
+      .returning();
+    console.log({ createRemove });
+    return chat.chatId;
   }
-  await db.update(junkMessage).set({ userId, chatId, createdAt: new Date() });
+  const update = await db
+    .update(junkMessage)
+    .set({ userId, chatId, createdAt: new Date() })
+    .returning();
+
+  console.log({ update });
 
   return chat.chatId;
 }

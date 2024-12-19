@@ -248,7 +248,10 @@ export async function removeMessage(params: {
       )
     )
     .returning();
-  return result.id;
+  return {
+    chatId: result.chatId,
+    messageId: result.id,
+  };
 }
 
 export async function getSearchMessage({

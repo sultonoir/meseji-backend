@@ -10,6 +10,7 @@ export type Chatlist = {
   lastSent: Date;
   isGroup: boolean;
   userId?: string;
+  senderId?: string;
 };
 
 const SendMessage = z.object({
@@ -59,7 +60,10 @@ export const validationChatlist = zValidator(
 const removeMessage = z.object({
   messageId: z.string(),
   chatId: z.string(),
+  userId: z.string(),
 });
+
+export type RemoveMessInput = z.infer<typeof removeMessage>;
 
 export const validationRemoveMess = zValidator(
   "json",

@@ -1,17 +1,12 @@
 import { Env } from "@/types";
 import { Hono } from "hono";
-import {
-  QuerySchema,
-  validationRemoveMess,
-  validationSearch,
-} from "./chat.input";
+import { QuerySchema, validationSearch } from "./chat.input";
 import { authMiddleware } from "@/middleware/auth.middleware";
 import {
   getAllmessage,
   getChatByid,
   getChatlist,
   getSearchMessage,
-  removeMessage,
 } from "./chat.service";
 
 export const chat = new Hono<Env>().basePath("/chat");
@@ -54,19 +49,4 @@ chat
 
     const result = await getSearchMessage({ q: query.q, chatId: id });
     return c.json(result);
-  })
-  .delete("/message", validationRemoveMess, async (c) => {
-    const body = c.req.valid("json");
-    const session = c.get("user");
-    try {
-      const result = await removeMessage({
-        userId: session.id,
-        chatId: body.chatId,
-        messageId: body.messageId,
-      });
-      return c.json(result);
-    } catch (error) {
-      const err = error as Error;
-      return c.json({ message: err.message }, 500);
-    }
   });

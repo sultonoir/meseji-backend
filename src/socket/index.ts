@@ -3,8 +3,8 @@ import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 
 import { createMiddleware } from "hono/factory";
-import { SendMessage } from "@/routes/chat/chat.input";
-import { sendMessage } from "@/routes/chat/chat.service";
+import { RemoveMessInput, SendMessage } from "@/routes/chat/chat.input";
+import { removeMessage, sendMessage } from "@/routes/chat/chat.service";
 import { updateUser } from "@/routes/user/user.service";
 
 let io: Server;
@@ -50,6 +50,13 @@ export function initWebsocket(server: any) {
     socket.on("sendMessage", async (message: SendMessage) => {
       const result = await sendMessage(message);
       io.to(message.chatId).emit("sendMessage", result);
+    });
+
+    socket.on("remove-message", async (message: RemoveMessInput) => {
+      console.log(`data from client : ${message}`);
+      const result = await removeMessage(message);
+      console.log(`result from server ${result}`);
+      io.to(message.chatId).emit("remove-message", result);
     });
 
     socket.on("disconnect", async () => {

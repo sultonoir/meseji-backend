@@ -7,7 +7,6 @@ import {
   uniqueIndex,
   index,
   integer,
-  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { generateId } from "@/lib/generateId";
@@ -54,7 +53,7 @@ export const contact = pgTable(
     ownerIndex: index("idx_owner_id").on(table.ownerId),
     friendIndex: index("idx_friend_id").on(table.friendId),
     // Unique constraint untuk mencegah duplikasi follow
-    uniqueFollow: unique().on(table.ownerId, table.friendId),
+    uniqueFollow: uniqueIndex().on(table.ownerId, table.friendId),
   })
 );
 
@@ -162,7 +161,7 @@ export const junkMessage = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    uniqueFollow: unique().on(table.chatId, table.userId),
+    uniqueFollow: uniqueIndex().on(table.chatId, table.userId),
   })
 );
 
