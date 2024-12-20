@@ -56,17 +56,13 @@ export function initWebsocket(server: any) {
     });
 
     socket.on("remove-message", async (message: RemoveMessInput) => {
-      console.log(`data from client : ${message}`);
       const result = await removeMessage(message);
-      console.log(`result from server ${result}`);
       io.to(message.chatId).emit("remove-message", result);
     });
 
     socket.join(userId);
     socket.on("sendDm", async (message: DmInput) => {
-      console.log(`data dm client: ${message}`);
       const result = await createChatPersonal(message);
-      console.log("result dm server", result);
       io.emit("sendDm", result);
     });
 
