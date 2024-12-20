@@ -6,6 +6,8 @@ import { createMiddleware } from "hono/factory";
 import { RemoveMessInput, SendMessage } from "@/routes/chat/chat.input";
 import { removeMessage, sendMessage } from "@/routes/chat/chat.service";
 import { updateUser } from "@/routes/user/user.service";
+import { DmInput } from "@/routes/dm/dm.input";
+import { createChatPersonal } from "@/routes/dm/dm.service";
 
 let io: Server;
 const online: string[] = [];
@@ -33,6 +35,7 @@ export function initWebsocket(server: any) {
     });
 
     socket.on("chat message", (msg) => {
+      console.log(msg);
       io.emit("chat message", msg);
     });
 
@@ -57,6 +60,14 @@ export function initWebsocket(server: any) {
       const result = await removeMessage(message);
       console.log(`result from server ${result}`);
       io.to(message.chatId).emit("remove-message", result);
+    });
+
+    socket.join(userId);
+    socket.on("sendDm", async (message: DmInput) => {
+      console.log(`data dm client: ${message}`);
+      const result = await createChatPersonal(message);
+      console.log("result dm server", result);
+      io.emit("sendDm", result);
     });
 
     socket.on("disconnect", async () => {

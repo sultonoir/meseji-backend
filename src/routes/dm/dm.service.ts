@@ -3,83 +3,83 @@ import { generateId } from "@/lib/generateId";
 import { Chatlist } from "../chat/chat.input";
 import { chat, junk, junkMessage, member, message } from "@/db/schema";
 import { and, eq, or, sql } from "drizzle-orm";
+import { DmInput } from "./dm.input";
+import { sendMessage } from "../chat/chat.service";
 
-export async function createChatPersonal({
-  other,
-  userId,
-  content,
-}: {
-  other: string;
-  userId: string;
-  content: string;
-}): Promise<Chatlist> {
-  const chatId = generateId(10);
-  const personal = await db.transaction(async (tx) => {
-    const existingChat = await tx.query.chat.findFirst({
-      where: (table, { inArray, and, eq }) =>
-        and(
-          eq(table.isGroup, false), // Pastikan bukan grup
-          inArray(
-            table.id,
-            db
-              .select({ chatId: member.chatId }) // Subquery memilih chatId
-              .from(member)
-              .where(or(eq(member.userId, userId), eq(member.userId, other)))
-              .groupBy(member.chatId) // Kelompokkan berdasarkan chatId
-              .having(
-                sql`COUNT(DISTINCT ${member.userId}) = 2` // Validasi jumlah anggota = 2
-              )
-          )
-        ),
-      with: {
-        member: {
-          with: {
-            user: true,
+// Helper function for checking if the chat already exists
+async function findExistingChat(userId: string, other: string) {
+  return db.query.chat.findFirst({
+    where: (table, { inArray, and, eq }) =>
+      and(
+        eq(table.isGroup, false), // Ensure it is not a group
+        inArray(
+          table.id,
+          db
+            .select({ chatId: member.chatId }) // Subquery selecting chatId
+            .from(member)
+            .where(or(eq(member.userId, userId), eq(member.userId, other)))
+            .groupBy(member.chatId) // Group by chatId
+            .having(sql`COUNT(DISTINCT ${member.userId}) = 2`) // Ensure only two members
+        )
+      ),
+    with: {
+      member: {
+        with: {
+          user: {
+            columns: {
+              id: true,
+              name: true,
+              image: true,
+            },
           },
-        }, // Ambil relasi member untuk validasi
-        message: true,
+        },
       },
-    });
+    },
+  });
+}
 
-    if (existingChat) {
-      // restore
-      await restoreChatFromJunk(userId, existingChat.id, other);
-      // Jika chat sudah ada, kembalikan chat yang sudah ada
-      const [mess] = await tx
-        .insert(message)
-        .values({ senderId: userId, content, chatId: existingChat.id })
-        .returning();
-      const otherMember = existingChat.member.find(
-        (item) => item.userId !== userId
-      );
+// Function to create a new chat
+async function createNewChat(
+  userId: string,
+  other: string,
+  content: string,
+  chatId: string
+) {
+  await db.insert(chat).values({ isGroup: false, id: chatId });
+  await db.insert(member).values([
+    { chatId, userId },
+    { chatId, userId: other, unreadCount: 1 },
+  ]);
 
-      return {
-        id: existingChat.id,
-        name: otherMember?.user.name ?? "",
-        image: otherMember?.user.image ?? "",
-        unreadCount: otherMember?.unreadCount ?? 0,
-        lastMessage: `You : ${content}`,
-        lastSent: mess.createdAt,
-        isGroup: existingChat.isGroup,
-        senderId: userId,
-      };
-    }
+  return await sendMessage({
+    chatId,
+    senderId: userId,
+    content,
+    media: [],
+  });
+}
 
-    await tx
-      .insert(chat)
-      .values({ isGroup: false, id: chatId })
-      .returning({ id: chat.id });
-    await tx.insert(member).values([
-      { chatId, userId },
-      { chatId, userId: other, unreadCount: 1 },
-    ]);
-    await tx.insert(message).values({ senderId: userId, content, chatId });
+export async function createChatPersonal({ other, userId, content }: DmInput) {
+  const chatId = generateId(10);
+  const existingChat = await findExistingChat(userId, other);
 
-    const newChat = await tx.query.chat.findFirst({
+  // Case when the chat already exists
+  if (!existingChat) {
+    const message = await createNewChat(userId, other, content, chatId);
+
+    const newChat = await db.query.chat.findFirst({
       where: eq(chat.id, chatId),
       with: {
         member: {
-          with: { user: true },
+          with: {
+            user: {
+              columns: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
         },
         message: {
           limit: 1,
@@ -88,24 +88,41 @@ export async function createChatPersonal({
       },
     });
 
-    if (!newChat) {
-      throw new Error("Failed to create chat.");
-    }
-
-    const otherMember = newChat.member.find((m) => m.userId !== userId);
-
-    return {
-      id: newChat.id,
-      name: otherMember?.user.name ?? "",
-      image: otherMember?.user.image ?? "",
-      unreadCount: 0,
-      lastMessage: content,
-      lastSent: new Date(),
-      isGroup: false,
+    const chatlist = {
       senderId: userId,
+      chatId,
+      member: newChat?.member.map((item) => ({
+        id: item.user.id,
+        name: item.name ?? item.user.name,
+        image: item.user.image,
+      })),
     };
+
+    return { chatlist, message };
+  }
+
+  await restoreChatFromJunk(userId, existingChat.id, other);
+
+  // Send the message in the existing chat
+  const message = await sendMessage({
+    chatId: existingChat.id,
+    senderId: userId,
+    content,
+    media: [],
   });
-  return personal;
+
+  const chatlist = {
+    senderId: userId,
+    chatId: existingChat.id,
+    member: existingChat.member.map((item) => ({
+      id: item.user.id,
+      name: item.name ?? item.user.name,
+      image: item.user.image,
+    })),
+  };
+
+  return { chatlist, message };
+  // Case when the chat does not exist, create a new one
 }
 
 async function restoreChatFromJunk(
@@ -167,7 +184,8 @@ export async function removeChat({
   }
   const update = await db
     .update(junkMessage)
-    .set({ userId, chatId, createdAt: new Date() })
+    .set({ createdAt: new Date() })
+    .where(and(eq(junkMessage.chatId, chatId), eq(junkMessage.userId, userId)))
     .returning();
 
   console.log({ update });

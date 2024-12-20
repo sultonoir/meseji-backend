@@ -25,7 +25,7 @@ dm.use(authMiddleware)
         500
       );
     }
-    io.emit('sendDm',chat)
+    io.emit("sendDm", chat);
     return c.json(chat);
   })
   .delete("/:id", async (c) => {

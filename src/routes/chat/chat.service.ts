@@ -24,7 +24,8 @@ export async function getChatlist(userId: string): Promise<Chatlist[]> {
         db
           .select()
           .from(junk)
-          .where(and(eq(junk.userId, userId), eq(junk.chatId, chat.id))) // Menyaring berdasarkan userId dan chatId
+          .where(and(eq(junk.userId, userId), eq(junk.chatId, chat.id)))
+          .limit(1) // Menyaring berdasarkan userId dan chatId
       )
     ),
     with: {
@@ -153,7 +154,11 @@ export async function getChatByid({
     },
   });
 
-  const otherMember = chat?.member.find((item) => item.userId !== userId);
+  if (!chat) {
+    return undefined;
+  }
+
+  const otherMember = chat.member.find((item) => item.userId !== userId);
 
   const result = {
     ...chat,

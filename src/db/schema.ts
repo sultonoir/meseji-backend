@@ -7,6 +7,7 @@ import {
   uniqueIndex,
   index,
   integer,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { generateId } from "@/lib/generateId";
@@ -161,7 +162,7 @@ export const junkMessage = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    uniqueFollow: uniqueIndex().on(table.chatId, table.userId),
+    pk: primaryKey({ columns: [table.userId, table.chatId] }),
   })
 );
 

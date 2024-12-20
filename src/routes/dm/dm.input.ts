@@ -7,6 +7,8 @@ const dmSchema = z.object({
   content: z.string(),
 });
 
+export type DmInput = z.infer<typeof dmSchema>;
+
 export const validationCreateDm = zValidator("json", dmSchema, (result, c) => {
   if (!result.success) {
     return c.json(
