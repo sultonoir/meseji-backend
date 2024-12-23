@@ -32,6 +32,8 @@ const SignupSchema = z.object({
   }),
 });
 
+export type SignupSchema = z.infer<typeof SignupSchema>;
+
 export const signupInput = zValidator("json", SignupSchema, (result, c) => {
   if (!result.success) {
     return c.json(

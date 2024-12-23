@@ -5,7 +5,7 @@ import { Server } from "socket.io";
 import { createMiddleware } from "hono/factory";
 import { RemoveMessInput, SendMessage } from "@/routes/chat/chat.input";
 import { removeMessage, sendMessage } from "@/routes/chat/chat.service";
-import { updateUser } from "@/routes/user/user.service";
+import { updateLastSeen, updateUser } from "@/routes/user/user.service";
 import { DmInput } from "@/routes/dm/dm.input";
 import { createChatPersonal } from "@/routes/dm/dm.service";
 
@@ -67,7 +67,7 @@ export function initWebsocket(server: any) {
     });
 
     socket.on("disconnect", async () => {
-      await updateUser({ userId });
+      // await updateLastSeen({ id: userId });
       const index = online.indexOf(userId);
       if (index !== -1) {
         online.splice(index, 1);

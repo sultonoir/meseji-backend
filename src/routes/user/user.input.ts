@@ -5,6 +5,7 @@ const updateUserschema = z.object({
   name: z.string().optional(),
   image: z.string().optional(),
   baner: z.string().optional(),
+  status: z.string().optional(),
 });
 
 export const UpdateUserValidation = zValidator(
@@ -21,3 +22,11 @@ export const UpdateUserValidation = zValidator(
     }
   }
 );
+
+export type UserUpdateInput = {
+  name?: string;
+  image?: string;
+  baner?: string;
+  status?: string;
+  userId: string;
+};

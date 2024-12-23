@@ -1,18 +1,16 @@
-import "dotenv/config";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import * as schema from "./schema";
+import { PrismaClient } from "@prisma/client";
+import { withAccelerate } from "@prisma/extension-accelerate";
+import { withPulse } from "@prisma/extension-pulse";
 
-/**
- * Cache the database connection in development. This avoids creating a new connection on every HMR
- * update.
- */
-const globalForDb = globalThis as unknown as {
-  conn: postgres.Sql | undefined;
+const createPrismaClient = () =>
+  new PrismaClient()
+    .$extends(withPulse({ apiKey: process.env.PULSE_API_KEY as string }))
+    .$extends(withAccelerate());
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: ReturnType<typeof createPrismaClient> | undefined;
 };
 
-const conn = globalForDb.conn ?? postgres(process.env.DATABASE_URL!);
-if (process.env.NODE_ENV !== "production") globalForDb.conn = conn;
+export const db = globalForPrisma.prisma ?? createPrismaClient();
 
-export const db = drizzle(conn, { schema });
-
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;

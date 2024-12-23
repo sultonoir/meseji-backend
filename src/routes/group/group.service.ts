@@ -1,9 +1,7 @@
 import { generateId } from "@/lib/generateId";
 import { Chatlist } from "../chat/chat.input";
-import { chat, member } from "@/db/schema";
 import { db } from "@/db";
 import { CreateChatGroup } from "./group.input";
-import { and, count, eq } from "drizzle-orm";
 
 export async function createChatGroup({
   userId,
@@ -11,20 +9,23 @@ export async function createChatGroup({
   image,
   username,
 }: CreateChatGroup): Promise<Chatlist> {
-  const [chatGroup] = await db
-    .insert(chat)
-    .values({
+  const chatGroup = await db.chat.create({
+    data: {
       id: generateId(),
       invitedCode: generateId(),
       name,
       image,
       isGroup: true,
-    })
-    .returning();
-
-  await db
-    .insert(member)
-    .values({ chatId: chatGroup.id, userId, name: username });
+      member: {
+        create: {
+          userId,
+          name: username,
+          role: "admin",
+          haveAccess: true,
+        },
+      },
+    },
+  });
 
   return {
     id: chatGroup.id,
@@ -38,32 +39,45 @@ export async function createChatGroup({
 }
 
 export async function outGroup(params: { chatId: string; userId: string }) {
-  const [result] = await db
-    .delete(member)
-    .where(
-      and(eq(member.userId, params.userId), eq(member.chatId, params.chatId))
-    )
-    .returning();
-  const [groupChat] = await db
-    .select({ count: count() })
-    .from(chat)
-    .where(eq(chat.id, params.chatId));
+  const group = await db.chat.update({
+    where: {
+      id: params.chatId,
+    },
+    data: {
+      member: {
+        deleteMany: {
+          userId: params.userId,
+        },
+      },
+    },
+    include: {
+      member: true,
+    },
+  });
 
-  if (groupChat.count === 0) {
-    await db.delete(chat).where(eq(chat.id, params.chatId));
+  if (group.member.length === 0) {
+    await db.chat.delete({
+      where: {
+        id: params.chatId,
+      },
+    });
+
+    return params.chatId;
   }
 
-  return result.chatId;
+  return params.chatId;
 }
 
 export async function getInviteCode({ code }: { code: string }) {
-  return await db.query.chat.findFirst({
-    where: (c, { eq }) => eq(c.invitedCode, code),
-    with: {
+  return await db.chat.findFirst({
+    where: {
+      invitedCode: code,
+    },
+    include: {
       member: {
-        with: {
+        include: {
           user: {
-            columns: {
+            select: {
               name: true,
               image: true,
               id: true,

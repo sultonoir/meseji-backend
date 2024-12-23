@@ -1,62 +1,56 @@
 import { db } from "@/db";
 import { Chatlist, SendMessage } from "./chat.input";
 import { generateId } from "@/lib/generateId";
-import { chat, junk, junkMessage, member, message } from "@/db/schema";
-import { media as images } from "@/db/schema";
-import { and, eq, gt, inArray, notExists, or, sql } from "drizzle-orm";
 
 export async function getChatlist(userId: string): Promise<Chatlist[]> {
   // Cari semua chat ID di mana userId adalah anggota
-  const memberChats = await db.query.member.findMany({
-    where: eq(member.userId, userId),
-    columns: {
-      chatId: true,
-    },
-  });
-
-  // Ambil semua chat ID yang ditemukan
-  const chatIds = memberChats.map((m) => m.chatId);
-  // Ambil chat berdasarkan chat ID yang relevan
-  const chats = await db.query.chat.findMany({
-    where: and(
-      inArray(chat.id, chatIds),
-      notExists(
-        db
-          .select()
-          .from(junk)
-          .where(and(eq(junk.userId, userId), eq(junk.chatId, chat.id)))
-          .limit(1) // Menyaring berdasarkan userId dan chatId
-      )
-    ),
-    with: {
+  const chats = await db.chat.findMany({
+    where: {
       member: {
-        with: {
-          user: true,
+        some: {
+          userId,
         },
       },
-      message: {
-        limit: 1,
-        with: {
-          media: {
-            limit: 1,
-            orderBy: (media, { desc }) => [desc(media.createdAt)],
-          },
-          sender: {
-            columns: {
+      junk: {
+        none: {
+          userId,
+        },
+      },
+    },
+    include: {
+      member: {
+        include: {
+          user: {
+            select: {
               name: true,
-              id: true,
+              image: true,
             },
           },
         },
-        orderBy: (m, { desc }) => [desc(m.createdAt)],
+      },
+      message: {
+        take: 1,
+        include: {
+          media: true,
+          sender: {
+            select: {
+              name: true,
+              image: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
       },
     },
   });
 
   return chats.map((chat) => {
-    const lastMessage = chat.message[0] || null;
-    const lastMedia = lastMessage?.media?.length > 0 ? "Send images" : "";
-    const sender = lastMessage.sender.name;
+    const lastMessage = chat.message.at(0);
+    const lastMedia =
+      lastMessage && lastMessage?.media?.length > 0 ? "Send images" : "";
+    const sender: string | undefined = lastMessage?.sender.name;
 
     const currentUserMember = chat.member.find((m) => m.userId === userId);
     const otherMember = chat.member.find((m) => m.userId !== userId);
@@ -67,9 +61,11 @@ export async function getChatlist(userId: string): Promise<Chatlist[]> {
         ? chat.name || "Unknown Group"
         : otherMember?.user.name || "Unknown User",
       image: chat.isGroup ? chat.image || "" : otherMember?.user.image || "",
-      lastMessage: `${sender} : ${lastMedia || lastMessage?.content || ""}`,
+      lastMessage: sender
+        ? `${sender} : ${lastMedia || lastMessage?.content}`
+        : "Created group",
       unreadCount: currentUserMember?.unreadCount || 0,
-      lastSent: lastMessage?.createdAt || chat.createdAt,
+      lastSent: lastMessage?.createdAt ?? new Date(),
       isGroup: chat.isGroup,
       userId: otherMember?.userId,
     };
@@ -85,54 +81,76 @@ export async function sendMessage({
 }: SendMessage) {
   const messId = generateId(10);
   // Start a transaction
-  return await db.transaction(async (tx) => {
+  return await db.$transaction(async (tx) => {
+    const id = generateId();
     // 1. Buat pesan baru
-    const [newMessage] = await tx
-      .insert(message)
-      .values({
+    const newMessage = await tx.message.create({
+      data: {
         content,
         senderId,
         chatId,
         replyToId,
-        id: messId,
-      })
-      .returning();
-
-    if (media.length > 0) {
-      await tx.insert(images).values(
-        media.map((item) => ({
-          id: generateId(),
-          value: item,
-          messageId: messId,
-        }))
-      );
-    }
-
-    // 3. Output send message
-    const result = await tx.query.message.findFirst({
-      where: (m, { eq }) => eq(m.id, messId), // Gunakan messId
-      with: {
+        id,
+      },
+      select: {
+        id: true,
+        senderId: true,
+        chatId: true,
+        content: true,
         media: true,
+        replyTo: true,
+        replyToId: true,
+        createdAt: true,
         sender: {
-          columns: {
+          select: {
             name: true,
             image: true,
           },
         },
-        replyTo: {
-          with: {
-            media: true,
-            sender: {
-              columns: {
-                name: true,
-                image: true,
-              },
-            },
+      },
+    });
+
+    if (media.length > 0) {
+      const newMedia = await tx.media.createManyAndReturn({
+        data: media.map((item) => ({
+          id: generateId(),
+          value: item,
+          messageId: newMessage.id,
+        })),
+      });
+      await tx.member.updateMany({
+        where: {
+          chatId,
+          userId: { not: senderId },
+        },
+        data: {
+          unreadCount: {
+            increment: 1, // Tambahkan unreadCount
           },
+        },
+      });
+      return {
+        ...newMessage,
+        media: newMedia,
+      };
+    }
+    // 2. Perbarui unreadCount untuk anggota lain
+    await tx.member.updateMany({
+      where: {
+        chatId,
+        userId: { not: senderId },
+      },
+      data: {
+        unreadCount: {
+          increment: 1, // Tambahkan unreadCount
         },
       },
     });
-    return result;
+
+    return {
+      ...newMessage,
+      media: [],
+    };
   });
 }
 
@@ -143,12 +161,21 @@ export async function getChatByid({
   id: string;
   userId: string;
 }) {
-  const chat = await db.query.chat.findFirst({
-    where: (c, { eq }) => eq(c.id, id),
-    with: {
+  const chat = await db.chat.findFirst({
+    where: {
+      id,
+    },
+    include: {
       member: {
-        with: {
-          user: true,
+        include: {
+          user: {
+            select: {
+              name: true,
+              image: true,
+              lastSeen: true,
+              status: true,
+            },
+          },
         },
       },
     },
@@ -186,51 +213,48 @@ export async function getAllmessage({
   const pageSize = 10;
 
   // Ambil waktu dari junk jika ada
-  const junkEntry = await db.query.junkMessage.findFirst({
-    where: (junk, { eq, and }) =>
-      and(eq(junk.chatId, id), eq(junk.userId, userId)),
-    columns: {
-      createdAt: true, // Ambil waktu createdAt dari junk
+  const junkEntry = await db.junkMessage.findFirst({
+    where: {
+      chatId: id,
+      userId,
     },
   });
 
   // Jika ada entri di junk, gunakan createdAt sebagai batas
-  const junkCreatedAt = junkEntry?.createdAt || null;
+  const junkCreatedAt = junkEntry?.createdAt;
 
   // Query untuk mengambil pesan, filter berdasarkan junkCreatedAt
-  const messages = await db.query.message.findMany({
-    where: and(
-      eq(message.chatId, id),
-      cursor ? sql`${message.createdAt} < ${cursor}` : undefined,
-      junkCreatedAt ? gt(message.createdAt, junkCreatedAt) : undefined
-    ),
-    limit: pageSize + 1,
-    with: {
+  const messages = await db.message.findMany({
+    where: {
+      chatId: id,
+      createdAt: {
+        gte: junkCreatedAt,
+      },
+    },
+    take: pageSize + 1,
+    cursor: cursor ? { id: cursor } : undefined,
+    select: {
+      id: true,
+      senderId: true,
+      content: true,
+      chatId: true,
       media: true,
+      replyTo: true,
+      replyToId: true,
+      createdAt: true,
       sender: {
-        columns: {
+        select: {
           name: true,
           image: true,
         },
       },
-      replyTo: {
-        with: {
-          media: true,
-          sender: {
-            columns: {
-              name: true,
-              image: true,
-            },
-          },
-        },
-      },
     },
-    orderBy: (o, { desc }) => [desc(o.createdAt)],
+    orderBy: {
+      createdAt: "desc",
+    },
   });
 
-  // Tentukan cursor untuk paging
-  const nextCursor =
-    messages.length > pageSize ? messages[pageSize].createdAt : null;
+  const nextCursor = messages.length > pageSize ? messages[pageSize].id : null;
 
   return {
     messages: messages.slice(0, pageSize),
@@ -243,16 +267,13 @@ export async function removeMessage(params: {
   chatId: string;
   messageId: string;
 }) {
-  const [result] = await db
-    .delete(message)
-    .where(
-      and(
-        eq(message.senderId, params.userId),
-        eq(message.id, params.messageId),
-        eq(message.chatId, params.chatId)
-      )
-    )
-    .returning();
+  const result = await db.message.delete({
+    where: {
+      id: params.messageId,
+      senderId: params.userId,
+      chatId: params.chatId,
+    },
+  });
   return {
     chatId: result.chatId,
     messageId: result.id,
@@ -266,22 +287,27 @@ export async function getSearchMessage({
   q: string;
   chatId: string;
 }) {
-  const messages = await db.query.message.findMany({
-    where: (m, { ilike, and, eq }) =>
-      and(eq(m.chatId, chatId), ilike(m.content, `%${q}%`)),
-    with: {
+  const messages = await db.message.findMany({
+    where: {
+      chatId,
+      content: {
+        contains: q,
+        mode: "insensitive",
+      },
+    },
+    include: {
       media: true,
       sender: {
-        columns: {
+        select: {
           name: true,
           image: true,
         },
       },
       replyTo: {
-        with: {
+        include: {
           media: true,
           sender: {
-            columns: {
+            select: {
               name: true,
               image: true,
             },

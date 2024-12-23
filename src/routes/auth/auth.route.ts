@@ -3,10 +3,10 @@ import { sign } from "hono/jwt";
 import { Env } from "@/types";
 import { signupInput, singinInput } from "./auth.input";
 import { Argon2id } from "oslo/password";
-import { db } from "@/db";
 import { setSignedCookie } from "hono/cookie";
 import { authMiddleware } from "@/middleware/auth.middleware";
-import { member, user } from "@/db/schema";
+import { createUser, findUser } from "./auth.service";
+import { addMember } from "../member/member.service";
 
 const argon2id = new Argon2id();
 const ONE_WEEK_IN_SECONDS = 7 * 86400; // 7 hari dalam detik
@@ -16,9 +16,7 @@ auth
   .post("/login", singinInput, async (c) => {
     const { email, password } = c.req.valid("json");
 
-    const existingUser = await db.query.user.findFirst({
-      where: (u, { eq }) => eq(u.email, email),
-    });
+    const existingUser = await findUser({ email });
 
     if (!existingUser?.hashedPassword) {
       return c.json(
@@ -65,10 +63,7 @@ auth
   .post("/signup", signupInput, async (c) => {
     const { email, password, name, username } = c.req.valid("json");
 
-    const existingUser = await db.query.user.findFirst({
-      where: (u, { or, eq }) =>
-        or(eq(u.email, email), eq(u.username, username)),
-    });
+    const existingUser = await findUser({ email, username });
 
     if (existingUser) {
       return c.json(
@@ -79,19 +74,17 @@ auth
 
     const hashedPassword = await argon2id.hash(password);
 
-    const res = await db.transaction(async (tx) => {
-      const [createUser] = await db
-        .insert(user)
-        .values({ name, email, username, hashedPassword })
-        .returning();
+    const res = await createUser({
+      email,
+      username,
+      name,
+      password: hashedPassword,
+    });
 
-      await tx.insert(member).values({
-        chatId: process.env.GROUP_ID as string,
-        userId: createUser.id,
-        name,
-      });
-
-      return createUser;
+    await addMember({
+      chatId: process.env.GROUP_ID as string,
+      userId: res.id,
+      name,
     });
 
     const payload = {

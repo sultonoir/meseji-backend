@@ -4,26 +4,28 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "dev": "tsx watch src/index.ts",
-    "push": "npx drizzle-kit push",
-    "generate": "npx drizzle-kit generate",
-    "studio": "npx drizzle-kit studio"
+    "push": "npx prisma db push",
+    "generate": "npx prisma generate",
+    "studio": "npx prisma studio"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
     "@hono/zod-validator": "^0.4.1",
     "@neondatabase/serverless": "^0.10.4",
+    "@prisma/client": "^6.1.0",
+    "@prisma/extension-accelerate": "^1.2.1",
+    "@prisma/extension-pulse": "^1.2.0",
     "dotenv": "^16.4.7",
-    "drizzle-orm": "^0.38.2",
     "hono": "^4.6.12",
     "nanoid": "^5.0.9",
     "oslo": "^1.2.1",
     "postgres": "^3.4.5",
+    "prisma": "^6.1.0",
     "socket.io": "^4.8.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.11.17",
-    "drizzle-kit": "^0.30.1",
     "tsx": "^4.19.2"
   }
 }

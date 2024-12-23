@@ -1,12 +1,37 @@
 import { db } from "@/db";
-import { user } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { Prisma } from "@prisma/client";
+import { UserUpdateInput } from "./user.input";
 
-export async function updateUser({ userId }: { userId: string }) {
-  return db
-    .update(user)
-    .set({ lastSeen: new Date() })
-    .where(eq(user.id, userId));
+export async function updateUser({
+  userId,
+  baner,
+  image,
+  name,
+  status,
+}: UserUpdateInput) {
+  const updateData: Prisma.UserUpdateInput = {};
+  if (name) updateData.name = name;
+  if (image) updateData.image = image;
+  if (baner) updateData.baner = baner;
+  if (status) updateData.status = status;
+
+  return db.user.update({
+    where: {
+      id: userId,
+    },
+    data: updateData,
+  });
+}
+
+export async function updateLastSeen({ id }: { id: string }) {
+  return await db.user.update({
+    where: {
+      id,
+    },
+    data: {
+      lastSeen: new Date(),
+    },
+  });
 }
 
 export async function getUserWithContact({
@@ -16,41 +41,25 @@ export async function getUserWithContact({
   userId: string;
   targetUserId: string;
 }) {
-  const user = await db.query.user.findFirst({
-    where: (u, { eq }) => eq(u.id, targetUserId), // Cari user berdasarkan userId
-    columns: {
-      id: true,
-      name: true,
-      status: true,
-      username: true,
-      baner: true,
-      image: true,
-    },
-    with: {
-      contact: {
-        where: (c, { or, and, eq }) =>
-          or(
-            and(eq(c.ownerId, userId), eq(c.friendId, targetUserId)),
-            and(eq(c.ownerId, targetUserId), eq(c.friendId, userId))
-          ),
-        columns: {
-          ownerId: true,
-          friendId: true,
-        },
-      },
+  const user = await db.user.findFirst({
+    where: {
+      id: targetUserId,
+    }, // Cari user berdasarkan userId
+    include: {
+      contact: true,
     },
   });
 
-  if (!user) {
-    return undefined;
-  }
-
   // Periksa apakah user ada dalam kontak
-  const isContact: boolean = (user?.contact?.length ?? 0) > 0;
-
+  const isContact: boolean =
+    user?.contact.some((c) => c.friendId === userId) ?? false;
   // Gabungkan data user dengan status isContact
   const result = {
-    ...user,
+    id: user?.id,
+    name: user?.name,
+    image: user?.image,
+    baner: user?.baner,
+    status: user?.status,
     isContact,
   };
 

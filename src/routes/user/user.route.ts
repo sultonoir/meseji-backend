@@ -5,9 +5,7 @@ import { Hono } from "hono";
 import { UpdateUserValidation } from "./user.input";
 import { sign } from "hono/jwt";
 import { setSignedCookie } from "hono/cookie";
-import { user as User } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { getUserWithContact } from "./user.service";
+import { getUserWithContact, updateUser } from "./user.service";
 
 export const user = new Hono<Env>().basePath("/user");
 
@@ -31,16 +29,7 @@ user
   .patch("/", UpdateUserValidation, async (c) => {
     const session = c.get("user");
     const data = c.req.valid("json");
-    const updateData: { name?: string; image?: string; baner?: string } = {};
-
-    if (data.name) updateData.name = data.name;
-    if (data.image) updateData.image = data.image;
-    if (data.baner) updateData.baner = data.baner;
-    const [result] = await db
-      .update(User)
-      .set(updateData)
-      .where(eq(User.id, session.id))
-      .returning();
+    const result = await updateUser({ userId: session.id, ...data });
 
     const payload = {
       id: result.id,
