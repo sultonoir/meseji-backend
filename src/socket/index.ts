@@ -67,7 +67,7 @@ export function initWebsocket(server: any) {
     });
 
     socket.on("disconnect", async () => {
-      // await updateLastSeen({ id: userId });
+      await updateLastSeen({ id: userId });
       const index = online.indexOf(userId);
       if (index !== -1) {
         online.splice(index, 1);

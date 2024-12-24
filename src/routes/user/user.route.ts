@@ -48,6 +48,6 @@ user
       maxAge: 7 * 86400, // maxAge dalam detik
       sameSite: "lax",
     });
-
-    return c.json(result);
+    const { hashedPassword, ...userWithoutPassword } = result;
+    return c.json(userWithoutPassword);
   });

@@ -1,8 +1,18 @@
 import { authMiddleware } from "@/middleware/auth.middleware";
 import { Env } from "@/types";
 import { Hono } from "hono";
-import { validationCreateGroup, validationOutGroup } from "./group.input";
-import { createChatGroup, getInviteCode, outGroup } from "./group.service";
+import {
+  validateUpdateGroup,
+  validationCreateGroup,
+  validationOutGroup,
+} from "./group.input";
+import {
+  createChatGroup,
+  getInviteCode,
+  outGroup,
+  updateGroup,
+} from "./group.service";
+import { accessMiddleware } from "@/middleware/access.middleware";
 
 export const group = new Hono<Env>().basePath("/group");
 
@@ -39,4 +49,11 @@ group
     const { chatId } = c.req.valid("json");
     const result = await outGroup({ chatId, userId: id });
     return c.json({ chatId: result });
+  })
+  .patch("/:id", accessMiddleware, validateUpdateGroup, async (c) => {
+    const id = c.req.param("id");
+    const { name, desc, image } = c.req.valid("json");
+    const result = await updateGroup({ id, name, desc, image });
+
+    return c.json(result)
   });

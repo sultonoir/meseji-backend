@@ -1,7 +1,8 @@
 import { generateId } from "@/lib/generateId";
 import { Chatlist } from "../chat/chat.input";
 import { db } from "@/db";
-import { CreateChatGroup } from "./group.input";
+import { CreateChatGroup, UpdateGroupInput } from "./group.input";
+import { Prisma } from "@prisma/client";
 
 export async function createChatGroup({
   userId,
@@ -89,5 +90,28 @@ export async function getInviteCode({ code }: { code: string }) {
         },
       },
     },
+  });
+}
+
+export async function updateGroup({ name, desc, image, id }: UpdateGroupInput) {
+  const conditon: Prisma.ChatUpdateInput = {};
+
+  if (name) {
+    conditon.name = name;
+  }
+
+  if (desc) {
+    conditon.desc = desc;
+  }
+
+  if (image) {
+    conditon.image = image;
+  }
+
+  return await db.chat.update({
+    where: {
+      id,
+    },
+    data: conditon,
   });
 }
