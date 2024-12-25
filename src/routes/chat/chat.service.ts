@@ -239,7 +239,20 @@ export async function getAllmessage({
       content: true,
       chatId: true,
       media: true,
-      replyTo: true,
+      replyTo: {
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          media: true,
+          sender: {
+            select: {
+              name: true,
+              image: true,
+            },
+          },
+        },
+      },
       replyToId: true,
       createdAt: true,
       sender: {
