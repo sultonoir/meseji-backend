@@ -35,7 +35,7 @@ export async function updateLastSeen({ id }: { id: string }) {
     }
     return await db.user.update({
       where: {
-        id,
+        id : existing.id
       },
       data: {
         lastSeen: new Date(),
