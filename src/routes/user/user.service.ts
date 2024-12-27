@@ -24,26 +24,22 @@ export async function updateUser({
 }
 
 export async function updateLastSeen({ id }: { id: string }) {
-  const userUpdate = db.$transaction(async (tx) => {
-    const existing = await tx.user.findFirst({
-      where: {
-        id,
-      },
-    });
-    if (!existing) {
-      return;
-    }
-    return await db.user.update({
-      where: {
-        id : existing.id
-      },
-      data: {
-        lastSeen: new Date(),
-      },
-    });
+  const existing = await db.user.findFirst({
+    where: {
+      id,
+    },
   });
-
-  return userUpdate;
+  if (!existing) {
+    return undefined;
+  }
+  return await db.user.update({
+    where: {
+      id: existing.id,
+    },
+    data: {
+      lastSeen: new Date(),
+    },
+  });
 }
 
 export async function getUserWithContact({
